@@ -10,8 +10,10 @@ import {
   findCashWalletName,
   flattenFireflyTransactions,
   formatDateKey,
+  getAnalyticsRange,
   getTransactionIconName,
   getMonthRange,
+  groupExpensesByAccount,
   groupTransactionsByDate,
   isExpenseAccount,
   isOwnedAccount,
@@ -321,5 +323,98 @@ describe("Firefly transforms", () => {
         },
       ],
     })
+  })
+})
+
+describe("getAnalyticsRange", () => {
+  it("month returns the same range as getMonthRange", () => {
+    const anchor = new Date(2026, 5, 1) // June 2026
+    expect(getAnalyticsRange(anchor, "month")).toEqual(getMonthRange(anchor))
+  })
+
+  it("quarter aligns to calendar quarter boundaries", () => {
+    // Q2: April–June
+    expect(getAnalyticsRange(new Date(2026, 4, 1), "quarter")).toEqual({
+      start: "2026-04-01",
+      end: "2026-06-30",
+    })
+    // Q1: January–March
+    expect(getAnalyticsRange(new Date(2026, 0, 1), "quarter")).toEqual({
+      start: "2026-01-01",
+      end: "2026-03-31",
+    })
+    // Q3: July–September
+    expect(getAnalyticsRange(new Date(2026, 6, 1), "quarter")).toEqual({
+      start: "2026-07-01",
+      end: "2026-09-30",
+    })
+    // Q4: October–December
+    expect(getAnalyticsRange(new Date(2026, 9, 1), "quarter")).toEqual({
+      start: "2026-10-01",
+      end: "2026-12-31",
+    })
+  })
+
+  it("year spans Jan 1 to Dec 31 of the anchor year", () => {
+    expect(getAnalyticsRange(new Date(2025, 3, 1), "year")).toEqual({
+      start: "2025-01-01",
+      end: "2025-12-31",
+    })
+  })
+
+  it("week returns the ISO week (Mon–Sun) containing the 1st of the anchor month", () => {
+    // June 1 2026 is a Monday → week is Jun 1–Jun 7
+    expect(getAnalyticsRange(new Date(2026, 5, 1), "week")).toEqual({
+      start: "2026-06-01",
+      end: "2026-06-07",
+    })
+    // March 1 2026 is a Sunday → Monday is Feb 23, Sunday is Mar 1
+    expect(getAnalyticsRange(new Date(2026, 2, 1), "week")).toEqual({
+      start: "2026-02-23",
+      end: "2026-03-01",
+    })
+    // July 1 2026 is a Wednesday → Monday is Jun 29, Sunday is Jul 5
+    expect(getAnalyticsRange(new Date(2026, 6, 1), "week")).toEqual({
+      start: "2026-06-29",
+      end: "2026-07-05",
+    })
+  })
+})
+
+describe("groupExpensesByAccount", () => {
+  it("buckets withdrawal transactions by sourceName", () => {
+    const transactions = flattenFireflyTransactions(groupedTransactions)
+    // transactions[0] is withdrawal from bKash; transactions[1] is deposit (ignored)
+    const result = groupExpensesByAccount(transactions)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      name: "bKash",
+      amount: 450,
+      percentage: 100,
+    })
+  })
+
+  it("computes percentage relative to total expense", () => {
+    const base = flattenFireflyTransactions(groupedTransactions)
+    const extra = {
+      ...base[0],
+      journalId: "extra-1",
+      sourceName: "Cash",
+      amount: 550,
+    }
+    const result = groupExpensesByAccount([...base, extra])
+
+    expect(result[0].name).toBe("Cash")
+    expect(result[0].percentage).toBe(55)
+    expect(result[1].name).toBe("bKash")
+    expect(result[1].percentage).toBe(45)
+  })
+
+  it("returns empty array when there are no withdrawal transactions", () => {
+    const transactions = flattenFireflyTransactions(groupedTransactions).filter(
+      (t) => t.type !== "withdrawal",
+    )
+    expect(groupExpensesByAccount(transactions)).toEqual([])
   })
 })

@@ -1,22 +1,25 @@
-import { FC, useMemo } from "react"
-import { TextStyle, View, ViewStyle } from "react-native"
+import { FC, useCallback, useEffect, useRef, useState } from "react"
+import { Modal, Pressable, ScrollView, TextStyle, View, ViewStyle } from "react-native"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { useScrollToTop } from "@react-navigation/native"
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller"
+import { Svg, Circle } from "react-native-svg"
 
-import {
-  Chip,
-  FinanceCard,
-  MetricPill,
-  ProgressBar,
-  SectionHeader,
-} from "@/components/firefly/FinancePrimitives"
+import { Chip, FinanceCard, MetricPill, ProgressBar } from "@/components/firefly/FinancePrimitives"
 import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
-import { useFirefly } from "@/context/FireflyContext"
-import type { CategoryExpense } from "@/models/firefly"
+import { useFirefly, LoadState } from "@/context/FireflyContext"
+import type { FlatTransaction } from "@/models/firefly"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
+import { FireflyApi } from "@/services/firefly/api"
 import {
+  AnalyticsPeriod,
   buildMonthlySummary,
+  flattenFireflyTransactions,
   formatMoney,
+  getAnalyticsRange,
+  groupExpensesByAccount,
   groupExpensesByCategory,
 } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
@@ -24,236 +27,650 @@ import type { ThemedStyle } from "@/theme/types"
 
 type AnalyticsScreenProps = MainTabScreenProps<"Analytics">
 
-export const AnalyticsScreen: FC<AnalyticsScreenProps> = () => {
-  const { themed } = useAppTheme()
+const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
+  { label: "Week", value: "week" },
+  { label: "Month", value: "month" },
+  { label: "Quarter", value: "quarter" },
+  { label: "Year", value: "year" },
+]
+
+const monthNames = Array.from({ length: 12 }, (_, month) =>
+  new Date(2020, month, 1).toLocaleDateString("en-US", { month: "short" }),
+)
+
+export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
+  const {
+    themed,
+    theme: { colors },
+  } = useAppTheme()
   const {
     selectedMonth,
+    setSelectedMonth,
     transactions,
     summariesByCurrency,
     selectedCurrency,
     setSelectedCurrency,
     refresh,
     isRefreshing,
+    baseUrl,
+    token,
+    isConfigured,
   } = useFirefly()
+
+  const [period, setPeriod] = useState<AnalyticsPeriod>("month")
+  const [rangeTransactions, setRangeTransactions] = useState<LoadState<FlatTransaction[]>>({
+    data: [],
+    status: "idle",
+  })
+  const [showYears, setShowYears] = useState(false)
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [expandedAccount, setExpandedAccount] = useState<string | null>(null)
+  const [categoryExpanded, setCategoryExpanded] = useState(true)
+  const [accountExpanded, setAccountExpanded] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const scrollRef = useRef<any>(null)
+  const categoryLayouts = useRef<Record<string, number>>({})
+
+  useScrollToTop(scrollRef)
+
+  const handleCategorySelect = useCallback((categoryName: string) => {
+    setSelectedCategory((prev) => (prev === categoryName ? null : categoryName))
+    setCategoryExpanded(true)
+    setExpandedCategory((prev) => (prev === categoryName ? null : categoryName))
+
+    setTimeout(() => {
+      const y = categoryLayouts.current[categoryName]
+      if (typeof y === "number" && scrollRef.current) {
+        scrollRef.current.scrollTo({ y: y - 10, animated: true })
+      }
+    }, 100)
+  }, [])
+
+  const handleCategoryHighlight = useCallback((categoryName: string) => {
+    setSelectedCategory((prev) => (prev === categoryName ? null : categoryName))
+  }, [])
+
+  const fetchRef = useRef(0)
+  const monthScrollRef = useRef<ScrollView>(null)
+  const now = new Date()
+
+  // Scroll month strip to selected month when picker changes year
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      monthScrollRef.current?.scrollTo({
+        x: Math.max(0, selectedMonth.getMonth() * 66 - 120),
+        animated: true,
+      })
+    }, 50)
+    return () => clearTimeout(timeout)
+  }, [selectedMonth])
+
+  const loadRange = useCallback(async () => {
+    if (!isConfigured) return
+    const currentFetch = ++fetchRef.current
+    setRangeTransactions((prev) => ({ ...prev, status: "loading" }))
+    const range = getAnalyticsRange(selectedMonth, period)
+    const api = new FireflyApi(baseUrl, token)
+    const result = await api.getTransactions(range)
+    if (currentFetch !== fetchRef.current) return
+    if (result.kind === "ok") {
+      setRangeTransactions({
+        data: flattenFireflyTransactions(result.data),
+        status: "ready",
+      })
+    } else {
+      setRangeTransactions((prev) => ({ ...prev, status: "error", error: result }))
+    }
+  }, [baseUrl, isConfigured, period, selectedMonth, token])
+
+  useEffect(() => {
+    // For "month" period, reuse the context transactions (already loaded) to avoid a duplicate call
+    if (period === "month") {
+      setRangeTransactions({ data: transactions.data, status: transactions.status })
+      return
+    }
+    void loadRange()
+  }, [period, transactions, loadRange])
+
   const effectiveCurrency = selectedCurrency ?? summariesByCurrency[0]?.currencyCode
-  const currencyTransactions = transactions.data.filter(
-    (transaction) => !effectiveCurrency || transaction.currencyCode === effectiveCurrency,
+  const currencyTransactions = rangeTransactions.data.filter(
+    (t) => !effectiveCurrency || t.currencyCode === effectiveCurrency,
   )
+
   const summary = buildMonthlySummary(currencyTransactions)
   const categoryExpenses = groupExpensesByCategory(currencyTransactions)
-  const daily = useMemo(() => {
-    const numberOfDays = new Date(
-      selectedMonth.getFullYear(),
-      selectedMonth.getMonth() + 1,
-      0,
-    ).getDate()
-    let cumulative = 0
-    return Array.from({ length: numberOfDays }, (_, index) => {
-      const day = index + 1
-      const items = currencyTransactions.filter(
-        (transaction) => Number(transaction.date.slice(8, 10)) === day,
-      )
-      const income = items
-        .filter((item) => item.type === "deposit")
-        .reduce((total, item) => total + item.amount, 0)
-      const expense = items
-        .filter((item) => item.type === "withdrawal")
-        .reduce((total, item) => total + item.amount, 0)
-      cumulative += income - expense
-      return { day, income, expense, cumulative }
-    })
-  }, [currencyTransactions, selectedMonth])
-  const maximumDaily = Math.max(...daily.flatMap((day) => [day.income, day.expense]), 1)
-  const cumulativeValues = daily.map((day) => day.cumulative)
-  const minimumCumulative = Math.min(...cumulativeValues, 0)
-  const maximumCumulative = Math.max(...cumulativeValues, 1)
-  const cumulativeRange = maximumCumulative - minimumCumulative || 1
-  const accountExpenses = currencyTransactions
-    .filter((transaction) => transaction.type === "withdrawal")
-    .reduce<Record<string, number>>((result, transaction) => {
-      const name = transaction.sourceName || "Unknown account"
-      result[name] = (result[name] ?? 0) + transaction.amount
-      return result
-    }, {})
-  const monthLabel = selectedMonth.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  })
+  const accountExpenses = groupExpensesByAccount(currencyTransactions)
+
+  const rangeLabel = (() => {
+    const range = getAnalyticsRange(selectedMonth, period)
+    if (period === "month") {
+      return selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    }
+    const fmt = (d: string) => {
+      const date = new Date(`${d}T12:00:00`)
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    }
+    return `${fmt(range.start)} – ${fmt(range.end)}, ${selectedMonth.getFullYear()}`
+  })()
+
+  const isLoading = rangeTransactions.status === "loading" && rangeTransactions.data.length === 0
+  const isOverlayLoading =
+    rangeTransactions.status === "loading" && rangeTransactions.data.length > 0
+
+  const navigateHomeFiltered = (filterType: "category" | "account", name: string) => {
+    navigation.navigate("Home", {
+      screen: "Home",
+      params: { filterType, filterName: name },
+    } as never)
+  }
 
   return (
-    <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
-      <View style={themed($header)}>
-        <View>
-          <Text text="Analytics" style={themed($title)} />
-          <Text text={monthLabel} style={themed($muted)} />
-        </View>
-        <Text text="▣" style={themed($calendar)} />
-      </View>
-
-      {summariesByCurrency.length > 1 && (
-        <View style={themed($periods)}>
-          {summariesByCurrency.map((currency) => (
-            <Chip
-              key={currency.currencyCode}
-              label={currency.currencyCode}
-              active={currency.currencyCode === selectedCurrency}
-              onPress={() => setSelectedCurrency(currency.currencyCode)}
-            />
-          ))}
-        </View>
-      )}
-
-      {isRefreshing && <LoadingIndicator label="Refreshing analytics..." compact />}
-      {transactions.status === "loading" && transactions.data.length === 0 && (
-        <LoadingIndicator label="Loading analytics..." />
-      )}
-      {transactions.status === "error" && (
-        <Text
-          text={`${transactions.error?.message} Tap to retry.`}
-          style={themed($negative)}
-          onPress={() => void refresh()}
-        />
-      )}
-      {transactions.status !== "loading" && currencyTransactions.length === 0 && (
-        <Text text="No transactions are available for this month." style={themed($muted)} />
-      )}
-
-      <View style={themed($metricRow)}>
-        <MetricPill
-          label="Income"
-          value={formatMoney(summary.totalIncome, summary.currencySymbol)}
-          tone="income"
-          icon="↙"
-        />
-        <MetricPill
-          label="Expenses"
-          value={formatMoney(summary.totalExpense, summary.currencySymbol)}
-          tone="expense"
-          icon="↗"
-        />
-        <MetricPill label="Saved" value={`${summary.savingsRate}%`} tone="saved" icon="✿" />
-      </View>
-
-      <FinanceCard>
-        <View style={themed($cardHeader)}>
-          <Text text="Cumulative Cash Flow" style={themed($cardTitle)} />
-          <Text
-            text={formatMoney(summary.netBalance, summary.currencySymbol)}
-            style={themed(summary.netBalance >= 0 ? $positive : $negative)}
-          />
-        </View>
-        <View style={themed($lineChart)}>
-          {daily.map((point, index) => (
-            <View
-              key={point.day}
-              style={[
-                themed($linePoint),
-                {
-                  bottom: `${((point.cumulative - minimumCumulative) / cumulativeRange) * 90}%`,
-                  left: `${(index / Math.max(daily.length - 1, 1)) * 96}%`,
-                },
-              ]}
-            />
-          ))}
-        </View>
-        <View style={themed($axisLabels)}>
-          <Text text="1" style={themed($muted)} />
-          <Text text={String(Math.ceil(daily.length / 2))} style={themed($muted)} />
-          <Text text={String(daily.length)} style={themed($muted)} />
-        </View>
-      </FinanceCard>
-
-      <FinanceCard>
-        <View style={themed($cardHeader)}>
-          <Text text="Daily Income / Expense" style={themed($cardTitle)} />
-          <Text text="● Income   ● Expenses" style={themed($legendText)} />
-        </View>
-        <View style={themed($barChart)}>
-          {daily.map((day) => (
-            <View key={day.day} style={themed($barGroup)}>
-              <View
-                style={[
-                  themed($incomeBar),
-                  { height: Math.max(2, (day.income / maximumDaily) * 90) },
-                ]}
-              />
-              <View
-                style={[
-                  themed($expenseBar),
-                  { height: Math.max(2, (day.expense / maximumDaily) * 90) },
-                ]}
-              />
+    <>
+      <Screen preset="fixed" safeAreaEdges={["top"]}>
+        <KeyboardAwareScrollView
+          ref={scrollRef}
+          contentContainerStyle={themed($container)}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View style={themed($header)}>
+            <View>
+              <Text text="Analytics" style={themed($title)} />
+              <Text text={rangeLabel} style={themed($muted)} />
             </View>
-          ))}
-        </View>
-      </FinanceCard>
-
-      <FinanceCard>
-        <View style={themed($cardHeader)}>
-          <Text text="Spending Breakdown" style={themed($cardTitle)} />
-          <Text
-            text={selectedMonth.toLocaleDateString("en-US", { month: "long" })}
-            style={themed($muted)}
-          />
-        </View>
-        <View style={themed($breakdownRow)}>
-          <View style={themed($donut)}>
-            <Text
-              text={formatMoney(summary.totalExpense, summary.currencySymbol)}
-              style={themed($donutAmount)}
-            />
-            <Text text="total" style={themed($muted)} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open month picker"
+              onPress={() => setShowYears(true)}
+              style={themed($calendarButton)}
+            >
+              <Text text="▣" style={themed($calendarIcon)} />
+            </Pressable>
           </View>
-          <View style={themed($legend)}>
-            {categoryExpenses.slice(0, 6).map((category) => (
-              <LegendRow key={category.name} category={category} />
+
+          {/* Period selector */}
+          <View style={themed($periods)}>
+            {PERIODS.map((p) => (
+              <Chip
+                key={p.value}
+                label={p.label}
+                active={period === p.value}
+                onPress={() => setPeriod(p.value)}
+              />
             ))}
           </View>
-        </View>
-      </FinanceCard>
 
-      <FinanceCard>
-        <SectionHeader title="Top Categories" />
-        {categoryExpenses.slice(0, 5).map((category) => (
-          <View key={category.name} style={themed($categoryRow)}>
-            <Text text={category.name} style={themed($categoryName)} />
-            <Text
-              text={formatMoney(category.amount, summary.currencySymbol)}
-              style={themed($categoryAmount)}
-            />
-            <ProgressBar value={category.percentage} color={category.color} />
-          </View>
-        ))}
-      </FinanceCard>
-
-      <SectionHeader title="By Account" />
-      {Object.entries(accountExpenses)
-        .sort(([, left], [, right]) => right - left)
-        .map(([account, expense]) => (
-          <FinanceCard key={account}>
-            <View style={themed($cardHeader)}>
-              <Text text={account} style={themed($cardTitle)} />
-              <Text text={formatMoney(expense, summary.currencySymbol)} style={themed($negative)} />
+          {/* Currency selector (only when multi-currency) */}
+          {summariesByCurrency.length > 1 && (
+            <View style={themed($currencyRow)}>
+              {summariesByCurrency.map((currency) => (
+                <Chip
+                  key={currency.currencyCode}
+                  label={currency.currencyCode}
+                  active={currency.currencyCode === selectedCurrency}
+                  onPress={() => setSelectedCurrency(currency.currencyCode)}
+                />
+              ))}
             </View>
-            <ProgressBar
-              value={summary.totalExpense > 0 ? (expense / summary.totalExpense) * 100 : 0}
+          )}
+
+          {/* Loading / error states */}
+          {isRefreshing && <LoadingIndicator label="Refreshing…" compact />}
+          {isOverlayLoading && <LoadingIndicator label="Loading…" compact />}
+          {isLoading && <LoadingIndicator label="Loading analytics…" />}
+          {rangeTransactions.status === "error" && (
+            <Text
+              text={`${rangeTransactions.error?.message ?? "Error"} Tap to retry.`}
+              style={themed($errorText)}
+              onPress={() => void loadRange()}
             />
+          )}
+          {transactions.status === "error" && period === "month" && (
+            <Text
+              text={`${transactions.error?.message ?? "Error"} Tap to retry.`}
+              style={themed($errorText)}
+              onPress={() => void refresh()}
+            />
+          )}
+          {rangeTransactions.status !== "loading" &&
+            currencyTransactions.length === 0 &&
+            !isLoading && <Text text="No transactions for this period." style={themed($muted)} />}
+
+          {/* Metric cards */}
+          <View style={themed($metricRow)}>
+            <MetricPill
+              label="Income"
+              value={formatMoney(summary.totalIncome, summary.currencySymbol)}
+              tone="income"
+              icon="↙"
+            />
+            <MetricPill
+              label="Expenses"
+              value={formatMoney(summary.totalExpense, summary.currencySymbol)}
+              tone="expense"
+              icon="↗"
+            />
+            <MetricPill label="Saved" value={`${summary.savingsRate}%`} tone="saved" icon="✿" />
+          </View>
+
+          {/* Spending Breakdown */}
+          <FinanceCard>
+            <View style={themed($cardHeader)}>
+              <Text text="Spending Breakdown" style={themed($cardTitle)} />
+              <Text
+                text={selectedMonth.toLocaleDateString("en-US", { month: "long" })}
+                style={themed($muted)}
+              />
+            </View>
+            <View style={themed($breakdownRow)}>
+              <View style={themed($donutContainer)}>
+                <Svg width={124} height={124} viewBox="0 0 120 120">
+                  {(() => {
+                    const totalExpense = summary.totalExpense
+                    if (totalExpense === 0) {
+                      return (
+                        <Circle
+                          cx={60}
+                          cy={60}
+                          r={45}
+                          stroke={colors.palette.neutral300}
+                          strokeWidth={12}
+                          fill="none"
+                        />
+                      )
+                    }
+
+                    let accumulatedPercent = 0
+                    const radius = 45
+                    const strokeWidthDefault = 12
+                    const strokeWidthSelected = 18
+                    const center = 60
+                    const circumference = 2 * Math.PI * radius
+
+                    return categoryExpenses
+                      .filter((c) => c.amount > 0)
+                      .map((category) => {
+                        const isSelected = selectedCategory === category.name
+                        const percentage = (category.amount / totalExpense) * 100
+                        const strokeLength = (percentage / 100) * circumference
+                        const strokeDasharray = `${strokeLength} ${circumference}`
+                        const strokeDashoffset = -(accumulatedPercent / 100) * circumference
+
+                        accumulatedPercent += percentage
+
+                        return (
+                          <Circle
+                            key={category.name}
+                            cx={center}
+                            cy={center}
+                            r={radius}
+                            stroke={category.color}
+                            strokeWidth={isSelected ? strokeWidthSelected : strokeWidthDefault}
+                            strokeDasharray={strokeDasharray}
+                            strokeDashoffset={strokeDashoffset}
+                            fill="none"
+                            transform={`rotate(-90 ${center} ${center})`}
+                            testID={`donut-slice-${category.name}`}
+                            onPress={() => handleCategoryHighlight(category.name)}
+                          />
+                        )
+                      })
+                  })()}
+                </Svg>
+                <View style={themed($donutTextOverlay)} pointerEvents="none">
+                  <Text
+                    text={formatMoney(summary.totalExpense, summary.currencySymbol)}
+                    style={themed($donutAmount)}
+                  />
+                  <Text text="total" style={themed($muted)} />
+                </View>
+              </View>
+              <View style={themed($legend)}>
+                {categoryExpenses.slice(0, 6).map((category) => (
+                  <LegendRow
+                    key={category.name}
+                    category={category}
+                    isSelected={selectedCategory === category.name}
+                    onPress={() => handleCategorySelect(category.name)}
+                  />
+                ))}
+              </View>
+            </View>
           </FinanceCard>
-        ))}
-    </Screen>
+
+          {/* By Category */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setCategoryExpanded((v) => !v)}
+            style={themed($sectionToggle)}
+          >
+            <Text text="By Category" style={themed($sectionTitle)} />
+            <Text
+              text={categoryExpanded ? "Collapse ↑" : "Tap to expand ↓"}
+              style={themed($sectionAction)}
+            />
+          </Pressable>
+
+          {categoryExpanded &&
+            categoryExpenses.map((category) => {
+              const isOpen = expandedCategory === category.name
+              return (
+                <View
+                  key={category.name}
+                  testID={`category-card-${category.name}`}
+                  onLayout={(e) => {
+                    categoryLayouts.current[category.name] = e.nativeEvent.layout.y
+                  }}
+                >
+                  <FinanceCard>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setExpandedCategory(isOpen ? null : category.name)}
+                      style={themed($categoryHeader)}
+                    >
+                      <View style={[themed($categoryDot), { backgroundColor: category.color }]} />
+                      <Text text={category.name} style={themed($categoryName)} numberOfLines={1} />
+                      <Text
+                        text={formatMoney(category.amount, summary.currencySymbol)}
+                        style={themed($categoryAmount)}
+                      />
+                      <Text text={`${category.percentage}%`} style={themed($categoryPercent)} />
+                      <MaterialCommunityIcons
+                        name={isOpen ? "chevron-up" : "chevron-down"}
+                        size={18}
+                        style={themed($dimIcon)}
+                      />
+                    </Pressable>
+                    <ProgressBar value={category.percentage} color={category.color} />
+
+                    {isOpen && (
+                      <View style={themed($transactionList)}>
+                        {category.transactions.slice(0, 5).map((t) => (
+                          <TransactionRow
+                            key={t.journalId}
+                            transaction={t}
+                            currencySymbol={summary.currencySymbol}
+                          />
+                        ))}
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => navigateHomeFiltered("category", category.name)}
+                          style={themed($viewAll)}
+                        >
+                          <Text text={`View all transactions →`} style={themed($viewAllText)} />
+                        </Pressable>
+                      </View>
+                    )}
+                  </FinanceCard>
+                </View>
+              )
+            })}
+
+          {/* By Account */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setAccountExpanded((v) => !v)}
+            style={themed($sectionToggle)}
+          >
+            <Text text="By Account" style={themed($sectionTitle)} />
+            <Text
+              text={accountExpanded ? "Collapse ↑" : "Tap to expand ↓"}
+              style={themed($sectionAction)}
+            />
+          </Pressable>
+
+          {accountExpanded &&
+            accountExpenses.map((account) => {
+              const isOpen = expandedAccount === account.name
+              return (
+                <FinanceCard key={account.name}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setExpandedAccount(isOpen ? null : account.name)}
+                    style={themed($categoryHeader)}
+                  >
+                    <View style={[themed($categoryDot), { backgroundColor: account.color }]} />
+                    <Text text={account.name} style={themed($categoryName)} numberOfLines={1} />
+                    <Text
+                      text={formatMoney(account.amount, summary.currencySymbol)}
+                      style={themed($categoryAmount)}
+                    />
+                    <Text text={`${account.percentage}%`} style={themed($categoryPercent)} />
+                    <MaterialCommunityIcons
+                      name={isOpen ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      style={themed($dimIcon)}
+                    />
+                  </Pressable>
+                  <ProgressBar value={account.percentage} color={account.color} />
+
+                  {isOpen && (
+                    <View style={themed($transactionList)}>
+                      {account.transactions.slice(0, 5).map((t) => (
+                        <TransactionRow
+                          key={t.journalId}
+                          transaction={t}
+                          currencySymbol={summary.currencySymbol}
+                        />
+                      ))}
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => navigateHomeFiltered("account", account.name)}
+                        style={themed($viewAll)}
+                      >
+                        <Text text={`View all transactions →`} style={themed($viewAllText)} />
+                      </Pressable>
+                    </View>
+                  )}
+                </FinanceCard>
+              )
+            })}
+        </KeyboardAwareScrollView>
+      </Screen>
+
+      {/* Year picker modal (same pattern as HomeScreen) */}
+      <YearPicker
+        visible={showYears}
+        selectedYear={selectedMonth.getFullYear()}
+        maximumYear={now.getFullYear()}
+        onSelect={(year) => {
+          const monthIndex =
+            year === now.getFullYear()
+              ? Math.min(selectedMonth.getMonth(), now.getMonth())
+              : selectedMonth.getMonth()
+          setSelectedMonth(new Date(year, monthIndex, 1))
+          setShowYears(false)
+        }}
+        onClose={() => setShowYears(false)}
+        monthScrollRef={monthScrollRef}
+        selectedMonth={selectedMonth}
+        setSelectedMonth={setSelectedMonth}
+        now={now}
+      />
+    </>
   )
 }
 
-function LegendRow({ category }: { category: CategoryExpense }) {
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function LegendRow({
+  category,
+  isSelected,
+  onPress,
+}: {
+  category: { name: string; color: string; percentage: number }
+  isSelected: boolean
+  onPress: () => void
+}) {
   const { themed } = useAppTheme()
   return (
-    <View style={themed($legendRow)}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      testID={`legend-row-${category.name}`}
+      style={themed([$legendRow, isSelected && $legendRowSelected])}
+    >
       <View style={[themed($legendDot), { backgroundColor: category.color }]} />
-      <Text text={category.name} style={themed($legendName)} />
-      <Text text={`${category.percentage}%`} style={themed($legendPercent)} />
+      <Text
+        text={category.name}
+        style={themed([$legendName, isSelected && $legendTextSelected])}
+        numberOfLines={1}
+      />
+      <Text
+        text={`${category.percentage}%`}
+        style={themed([$legendPercent, isSelected && $legendTextSelected])}
+      />
+    </Pressable>
+  )
+}
+
+function TransactionRow({
+  transaction,
+  currencySymbol,
+}: {
+  transaction: FlatTransaction
+  currencySymbol: string
+}) {
+  const { themed } = useAppTheme()
+  const isDeposit = transaction.type === "deposit"
+  const sign = isDeposit ? "+" : "-"
+  const amountStyle = isDeposit ? $txAmountPositive : $txAmountNegative
+  const dateLabel = new Date(`${transaction.date.slice(0, 10)}T12:00:00`).toLocaleDateString(
+    "en-US",
+    { month: "short", day: "numeric" },
+  )
+  return (
+    <View style={themed($txRow)}>
+      <View style={themed($txMain)}>
+        <Text text={transaction.description} style={themed($txTitle)} numberOfLines={1} />
+        <Text
+          text={`${dateLabel} · ${transaction.sourceName}`}
+          style={themed($txMeta)}
+          numberOfLines={1}
+        />
+      </View>
+      <Text
+        text={`${sign}${formatMoney(transaction.amount, currencySymbol)}`}
+        style={themed(amountStyle)}
+      />
     </View>
   )
 }
+
+function YearPicker({
+  visible,
+  selectedYear,
+  maximumYear,
+  onSelect,
+  onClose,
+  monthScrollRef,
+  selectedMonth,
+  setSelectedMonth,
+  now,
+}: {
+  visible: boolean
+  selectedYear: number
+  maximumYear: number
+  onSelect: (year: number) => void
+  onClose: () => void
+  monthScrollRef: React.RefObject<ScrollView | null>
+  selectedMonth: Date
+  setSelectedMonth: (month: Date) => void
+  now: Date
+}) {
+  const { themed } = useAppTheme()
+  const [decadeStart, setDecadeStart] = useState(Math.floor(selectedYear / 10) * 10)
+  useEffect(() => setDecadeStart(Math.floor(selectedYear / 10) * 10), [selectedYear, visible])
+  const years = Array.from({ length: 12 }, (_, i) => decadeStart - 1 + i)
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={themed($modalOverlay)}>
+        <Pressable style={themed($modalDismiss)} onPress={onClose} />
+        <View style={themed($yearModal)}>
+          {/* Month strip */}
+          <ScrollView
+            ref={monthScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={themed($monthStrip)}
+          >
+            {monthNames.map((name, monthIndex) => {
+              const isCurrentYear = selectedYear === now.getFullYear()
+              const disabled = isCurrentYear && monthIndex > now.getMonth()
+              const active =
+                monthIndex === selectedMonth.getMonth() &&
+                selectedYear === selectedMonth.getFullYear()
+              return (
+                <Pressable
+                  key={name}
+                  disabled={disabled}
+                  onPress={() => {
+                    setSelectedMonth(new Date(selectedYear, monthIndex, 1))
+                    onClose()
+                  }}
+                  style={themed([$monthChip, active && $activeMonthChip])}
+                >
+                  <Text
+                    text={name}
+                    style={themed([
+                      $monthText,
+                      active && $activeMonthText,
+                      disabled && $disabledMonthText,
+                    ])}
+                  />
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+
+          {/* Year grid */}
+          <View style={themed($yearModalHeader)}>
+            <Pressable onPress={() => setDecadeStart((y) => y - 10)} style={themed($iconTap)}>
+              <MaterialCommunityIcons name="chevron-left" size={26} style={themed($icon)} />
+            </Pressable>
+            <Text text={`${decadeStart}–${decadeStart + 9}`} style={themed($yearModalTitle)} />
+            <Pressable
+              disabled={decadeStart + 10 > maximumYear}
+              onPress={() => setDecadeStart((y) => y + 10)}
+              style={themed($iconTap)}
+            >
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={26}
+                style={themed(decadeStart + 10 > maximumYear ? $disabledIcon : $icon)}
+              />
+            </Pressable>
+          </View>
+          <View style={themed($yearGrid)}>
+            {years.map((year) => {
+              const disabled = year > maximumYear
+              return (
+                <Pressable
+                  key={year}
+                  disabled={disabled}
+                  onPress={() => onSelect(year)}
+                  style={themed([$yearCell, year === selectedYear && $selectedYearCell])}
+                >
+                  <Text
+                    text={String(year)}
+                    style={themed([
+                      $yearCellText,
+                      year === selectedYear && $selectedYearText,
+                      disabled && $disabledMonthText,
+                    ])}
+                  />
+                </Pressable>
+              )
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.lg,
@@ -279,7 +696,12 @@ const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   fontSize: 13,
 })
 
-const $calendar: ThemedStyle<TextStyle> = ({ colors }) => ({
+const $calendarButton: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  justifyContent: "center",
+})
+
+const $calendarIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.surfaceContainer,
   borderRadius: 22,
   color: colors.textDim,
@@ -300,6 +722,16 @@ const $periods: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   padding: spacing.xs,
 })
 
+const $currencyRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  gap: spacing.xs,
+})
+
+const $errorText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary300,
+  fontSize: 13,
+})
+
 const $metricRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   gap: spacing.sm,
@@ -317,70 +749,6 @@ const $cardTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   fontSize: 18,
 })
 
-const $positive: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.tint,
-  fontSize: 13,
-})
-
-const $negative: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.palette.tertiary300,
-  fontSize: 13,
-})
-
-const $lineChart: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: "rgba(62, 165, 118, 0.08)",
-  borderBottomColor: colors.palette.stroke,
-  borderBottomWidth: 1,
-  height: 130,
-  marginTop: 12,
-  position: "relative",
-})
-
-const $linePoint: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.tint,
-  borderRadius: 5,
-  height: 10,
-  position: "absolute",
-  width: 10,
-})
-
-const $axisLabels: ThemedStyle<ViewStyle> = () => ({
-  flexDirection: "row",
-  justifyContent: "space-between",
-})
-
-const $legendText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.textDim,
-  fontSize: 12,
-})
-
-const $barChart: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "flex-end",
-  flexDirection: "row",
-  gap: spacing.lg,
-  height: 100,
-  justifyContent: "center",
-  marginTop: spacing.md,
-})
-
-const $barGroup: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "flex-end",
-  flexDirection: "row",
-  gap: spacing.xs,
-})
-
-const $incomeBar: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.tint,
-  borderRadius: 10,
-  width: 28,
-})
-
-const $expenseBar: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.palette.tertiary300,
-  borderRadius: 10,
-  width: 28,
-})
-
 const $breakdownRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
@@ -388,14 +756,20 @@ const $breakdownRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   marginTop: spacing.md,
 })
 
-const $donut: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  alignItems: "center",
-  borderColor: colors.palette.secondary300,
-  borderRadius: 62,
-  borderWidth: 18,
+const $donutContainer: ThemedStyle<ViewStyle> = () => ({
   height: 124,
-  justifyContent: "center",
+  position: "relative",
   width: 124,
+})
+
+const $donutTextOverlay: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  bottom: 0,
+  justifyContent: "center",
+  left: 0,
+  position: "absolute",
+  right: 0,
+  top: 0,
 })
 
 const $donutAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
@@ -412,6 +786,18 @@ const $legendRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
   gap: spacing.sm,
+  borderRadius: 6,
+  paddingHorizontal: spacing.xs,
+  paddingVertical: spacing.xxs,
+})
+
+const $legendRowSelected: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHigh,
+})
+
+const $legendTextSelected: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.bold,
 })
 
 const $legendDot: ThemedStyle<ViewStyle> = () => ({
@@ -423,24 +809,220 @@ const $legendDot: ThemedStyle<ViewStyle> = () => ({
 const $legendName: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
   flex: 1,
+  fontSize: 12,
 })
 
 const $legendPercent: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.semiBold,
+  fontSize: 12,
 })
 
-const $categoryRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.xs,
-  marginTop: spacing.md,
+const $sectionToggle: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "space-between",
+})
+
+const $sectionTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 20,
+  lineHeight: 26,
+})
+
+const $sectionAction: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.tint,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+})
+
+const $categoryHeader: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.sm,
+  marginBottom: spacing.sm,
+})
+
+const $categoryDot: ThemedStyle<ViewStyle> = () => ({
+  borderRadius: 10,
+  height: 20,
+  width: 20,
 })
 
 const $categoryName: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
+  flex: 1,
   fontFamily: typography.primary.medium,
-  fontSize: 16,
+  fontSize: 15,
 })
 
-const $categoryAmount: ThemedStyle<TextStyle> = ({ colors }) => ({
+const $categoryAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 14,
+})
+
+const $categoryPercent: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 13,
+})
+
+const $dimIcon: ThemedStyle<TextStyle> = ({ colors }) => ({ color: colors.textDim })
+const $icon: ThemedStyle<TextStyle> = ({ colors }) => ({ color: colors.text })
+
+const $transactionList: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.xs,
+  marginTop: spacing.md,
+})
+
+const $txRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.sm,
+  minHeight: 44,
+})
+
+const $txMain: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
+
+const $txTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
+})
+
+const $txMeta: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 12,
+})
+
+const $txAmountPositive: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.tint,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+})
+
+const $txAmountNegative: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.tertiary300,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+})
+
+const $viewAll: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "flex-start",
+  paddingTop: spacing.xs,
+})
+
+const $viewAllText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.tint,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+})
+
+// ─── Year/Month picker styles (match HomeScreen pattern) ─────────────────────
+
+const $modalOverlay: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.overlay50,
+  flex: 1,
+  justifyContent: "flex-end",
+})
+
+const $modalDismiss: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
+
+const $yearModal: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignSelf: "center",
+  backgroundColor: colors.palette.surfaceContainer,
+  borderRadius: 24,
+  bottom: "28%",
+  padding: spacing.md,
+  position: "absolute",
+  width: "88%",
+})
+
+const $monthStrip: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.xs,
+  paddingBottom: spacing.sm,
+  paddingHorizontal: spacing.xxs,
+})
+
+const $monthChip: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  alignItems: "center",
+  borderColor: colors.palette.stroke,
+  borderRadius: 22,
+  borderWidth: 1,
+  justifyContent: "center",
+  minHeight: 40,
+  width: 54,
+})
+
+const $activeMonthChip: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.tint,
+  borderColor: colors.tint,
+})
+
+const $monthText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.textDim,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+})
+
+const $activeMonthText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.surfaceDim,
+})
+
+const $disabledMonthText: ThemedStyle<TextStyle> = () => ({ opacity: 0.3 })
+
+const $yearModalHeader: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginTop: 8,
+})
+
+const $iconTap: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  height: 44,
+  justifyContent: "center",
+  width: 44,
+})
+
+const $disabledIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  opacity: 0.3,
+})
+
+const $yearModalTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 18,
+})
+
+const $yearGrid: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: spacing.xs,
+  justifyContent: "center",
+  marginTop: spacing.sm,
+})
+
+const $yearCell: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  borderRadius: 12,
+  justifyContent: "center",
+  minHeight: 44,
+  width: "29%",
+})
+
+const $selectedYearCell: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.tint,
+})
+
+const $yearCellText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.text,
+  fontSize: 14,
+})
+
+const $selectedYearText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.bold,
 })

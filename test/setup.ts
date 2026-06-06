@@ -51,6 +51,27 @@ jest.mock("../app/i18n/index.ts", () => ({
   },
 }))
 
+jest.mock("react-native-keyboard-controller", () => {
+  return require("react-native-keyboard-controller/jest")
+})
+
+jest.mock("react-native-svg", () => {
+  const React = require("react")
+  const mockComponent = (name: string) => {
+    const Component = (props: any) => React.createElement(name, props, props.children)
+    Component.displayName = name
+    return Component
+  }
+  return {
+    __esModule: true,
+    default: mockComponent("Svg"),
+    Svg: mockComponent("Svg"),
+    Circle: mockComponent("Circle"),
+    G: mockComponent("G"),
+    Text: mockComponent("Text"),
+  }
+})
+
 declare const tron // eslint-disable-line @typescript-eslint/no-unused-vars
 
 declare global {

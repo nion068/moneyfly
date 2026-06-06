@@ -117,6 +117,40 @@ export function groupExpensesByCategory(transactions: FlatTransaction[]): Catego
     .sort((left, right) => right.amount - left.amount)
 }
 
+export type AccountExpense = {
+  name: string
+  amount: number
+  percentage: number
+  color: string
+  transactions: FlatTransaction[]
+}
+
+export function groupExpensesByAccount(transactions: FlatTransaction[]): AccountExpense[] {
+  const expenses = transactions.filter((transaction) => transaction.type === "withdrawal")
+  const totalExpense = expenses.reduce((total, transaction) => total + transaction.amount, 0)
+  const grouped = expenses.reduce<Record<string, FlatTransaction[]>>((acc, transaction) => {
+    const name = transaction.sourceName || "Unknown account"
+    acc[name] = [...(acc[name] ?? []), transaction]
+    return acc
+  }, {})
+
+  return Object.entries(grouped)
+    .map(([name, accountTransactions], index) => {
+      const amount = accountTransactions.reduce(
+        (total, transaction) => total + transaction.amount,
+        0,
+      )
+      return {
+        name,
+        amount,
+        percentage: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
+        color: categoryColors[index % categoryColors.length],
+        transactions: accountTransactions,
+      }
+    })
+    .sort((left, right) => right.amount - left.amount)
+}
+
 export function findCashWallet(accounts: FireflyAccount[]) {
   return (
     accounts.find((account) => account.attributes.account_role?.toLowerCase() === "cashwallet") ??
@@ -230,6 +264,8 @@ export function accountToSummary(
   }
 }
 
+export type AnalyticsPeriod = "week" | "month" | "quarter" | "year"
+
 export function getMonthRange(month: Date) {
   const year = month.getFullYear()
   const monthIndex = month.getMonth()
@@ -241,6 +277,41 @@ export function getMonthRange(month: Date) {
     ).padStart(2, "0")}`
 
   return { start: format(start), end: format(end) }
+}
+
+export function getAnalyticsRange(anchor: Date, period: AnalyticsPeriod) {
+  const format = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate(),
+    ).padStart(2, "0")}`
+
+  const year = anchor.getFullYear()
+  const monthIndex = anchor.getMonth()
+
+  if (period === "month") {
+    return getMonthRange(anchor)
+  }
+
+  if (period === "week") {
+    // Use ISO week that contains the 1st of the anchor month
+    const firstOfMonth = new Date(year, monthIndex, 1)
+    // ISO week: Monday = 0 offset, Sunday = 6 offset
+    const dayOfWeek = firstOfMonth.getDay() // 0 = Sun, 1 = Mon … 6 = Sat
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(year, monthIndex, 1 + mondayOffset)
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
+    return { start: format(monday), end: format(sunday) }
+  }
+
+  if (period === "quarter") {
+    const quarterStart = Math.floor(monthIndex / 3) * 3
+    const start = new Date(year, quarterStart, 1)
+    const end = new Date(year, quarterStart + 3, 0)
+    return { start: format(start), end: format(end) }
+  }
+
+  // year
+  return { start: format(new Date(year, 0, 1)), end: format(new Date(year, 11, 31)) }
 }
 
 export function shiftMonth(month: Date, offset: number) {
