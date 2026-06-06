@@ -7,12 +7,14 @@ import { Text } from "@/components/Text"
 import Config from "@/config"
 import { useFirefly } from "@/context/FireflyContext"
 import { AccountsScreen } from "@/screens/AccountsScreen"
+import { AddTransactionScreen } from "@/screens/AddTransactionScreen"
 import { AiAssistantScreen } from "@/screens/AiAssistantScreen"
 import { AnalyticsScreen } from "@/screens/AnalyticsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { HomeScreen } from "@/screens/HomeScreen"
 import { SettingsScreen } from "@/screens/SettingsScreen"
 import { SetupScreen } from "@/screens/SetupScreen"
+import { TransactionDetailsScreen } from "@/screens/TransactionDetailsScreen"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
@@ -119,7 +121,24 @@ const AppStack = () => {
       initialRouteName={isConfigured ? "Main" : "Setup"}
     >
       {isConfigured ? (
-        <Stack.Screen name="Main" component={MainTabs} />
+        <>
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen
+            name="AddTransaction"
+            component={AddTransactionScreen}
+            options={{ animation: "slide_from_bottom" }}
+          />
+          <Stack.Screen
+            name="TransactionDetails"
+            component={TransactionDetailsScreen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="EditTransaction"
+            component={AddTransactionScreen}
+            options={{ animation: "slide_from_bottom" }}
+          />
+        </>
       ) : (
         <Stack.Screen name="Setup" component={SetupScreen} />
       )}

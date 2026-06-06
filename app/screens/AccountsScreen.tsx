@@ -2,6 +2,7 @@ import { FC, useState } from "react"
 import { TextStyle, View, ViewStyle } from "react-native"
 
 import { Chip, FinanceCard, SectionHeader } from "@/components/firefly/FinancePrimitives"
+import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { useFirefly } from "@/context/FireflyContext"
@@ -17,7 +18,13 @@ const filters = ["All", "Bank", "Wallet", "Cash", "Credit"]
 
 export const AccountsScreen: FC<AccountsScreenProps> = () => {
   const { themed } = useAppTheme()
-  const { accounts: accountState, transactions, selectedMonth, refresh } = useFirefly()
+  const {
+    accounts: accountState,
+    transactions,
+    selectedMonth,
+    refresh,
+    isRefreshing,
+  } = useFirefly()
   const [activeFilter, setActiveFilter] = useState("All")
   const activeAccounts = accountState.data.filter((account) => {
     const type = account.attributes.type.toLowerCase()
@@ -83,6 +90,7 @@ export const AccountsScreen: FC<AccountsScreenProps> = () => {
       </FinanceCard>
 
       <SectionHeader title="All Accounts" action="Sort ⌄" />
+      {isRefreshing && <LoadingIndicator label="Refreshing accounts..." compact />}
       <View style={themed($filters)}>
         {filters.map((filter) => (
           <Chip
@@ -94,7 +102,9 @@ export const AccountsScreen: FC<AccountsScreenProps> = () => {
         ))}
       </View>
 
-      {accountState.status === "loading" && <Text text="Loading Firefly accounts..." />}
+      {accountState.status === "loading" && accountState.data.length === 0 && (
+        <LoadingIndicator label="Loading accounts..." />
+      )}
       {accountState.status === "error" && (
         <Text
           text={`${accountState.error?.message} Tap refresh in Settings to retry.`}

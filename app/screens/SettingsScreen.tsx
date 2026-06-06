@@ -1,5 +1,5 @@
 import { FC } from "react"
-import { Pressable, TextStyle, View, ViewStyle } from "react-native"
+import { ActivityIndicator, Pressable, TextStyle, View, ViewStyle } from "react-native"
 
 import { FinanceCard, SectionHeader } from "@/components/firefly/FinancePrimitives"
 import { Screen } from "@/components/Screen"
@@ -12,7 +12,10 @@ import type { ThemedStyle } from "@/theme/types"
 type SettingsScreenProps = MainTabScreenProps<"Settings">
 
 export const SettingsScreen: FC<SettingsScreenProps> = () => {
-  const { themed } = useAppTheme()
+  const {
+    themed,
+    theme: { colors },
+  } = useAppTheme()
   const {
     baseUrl,
     disconnect,
@@ -60,6 +63,7 @@ export const SettingsScreen: FC<SettingsScreenProps> = () => {
           onPress={() => void refresh()}
           style={themed($refreshButton)}
         >
+          {isRefreshing && <ActivityIndicator color={colors.tint} size="small" />}
           <Text
             text={isRefreshing ? "Refreshing..." : "Refresh now"}
             style={themed($refreshText)}
@@ -175,6 +179,9 @@ const $refreshButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   borderColor: colors.tint,
   borderRadius: 18,
   borderWidth: 1,
+  flexDirection: "row",
+  gap: spacing.xs,
+  justifyContent: "center",
   marginTop: spacing.md,
   padding: spacing.md,
 })

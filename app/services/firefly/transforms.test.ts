@@ -4,11 +4,20 @@ import {
   accountToSummary,
   buildMonthlySummary,
   buildSummariesByCurrency,
+  clampMonthToPresent,
   draftToStoreRequest,
+  filterTransactions,
   findCashWalletName,
   flattenFireflyTransactions,
+  formatDateKey,
+  getTransactionIconName,
   getMonthRange,
   groupTransactionsByDate,
+  isExpenseAccount,
+  isOwnedAccount,
+  isRevenueAccount,
+  manualTransactionToStoreRequest,
+  manualTransactionToUpdateRequest,
   shiftMonth,
 } from "@/services/firefly/transforms"
 
@@ -179,5 +188,138 @@ describe("Firefly transforms", () => {
   it("normalizes Firefly base URL", () => {
     expect(normalizeApiBaseUrl("firefly.example.com")).toBe("https://firefly.example.com/")
     expect(normalizeApiBaseUrl("http://localhost:8080/")).toBe("http://localhost:8080/")
+  })
+
+  it("clamps future months and formats dates in local time", () => {
+    const now = new Date(2026, 5, 6, 1, 30)
+
+    expect(clampMonthToPresent(new Date(2027, 0, 1), now)).toEqual(new Date(2026, 5, 1))
+    expect(clampMonthToPresent(new Date(2026, 3, 1), now)).toEqual(new Date(2026, 3, 1))
+    expect(formatDateKey(now)).toBe("2026-06-06")
+  })
+
+  it("classifies active owned and counterparty accounts", () => {
+    const owned: FireflyAccount = {
+      id: "asset",
+      attributes: { name: "Cash wallet", type: "cash", active: true },
+    }
+    const expense: FireflyAccount = {
+      id: "expense",
+      attributes: { name: "Groceries", type: "expense", active: true },
+    }
+    const revenue: FireflyAccount = {
+      id: "revenue",
+      attributes: { name: "Salary", type: "revenue", active: true },
+    }
+
+    expect(isOwnedAccount(owned)).toBe(true)
+    expect(isExpenseAccount(expense)).toBe(true)
+    expect(isRevenueAccount(revenue)).toBe(true)
+    expect(isOwnedAccount(expense)).toBe(false)
+  })
+
+  it("combines type, search, category, account, and date filters", () => {
+    const transactions = flattenFireflyTransactions(groupedTransactions)
+    transactions[0].sourceId = "wallet"
+    const wallet: FireflyAccount = {
+      id: "wallet",
+      attributes: { name: "bKash", type: "asset" },
+    }
+
+    expect(
+      filterTransactions(transactions, {
+        type: "withdrawal",
+        search: "lunch",
+        categoryNames: ["Food & Dining"],
+        accounts: [wallet],
+        startDate: "2026-06-04",
+        endDate: "2026-06-04",
+      }),
+    ).toEqual([transactions[0]])
+    expect(
+      filterTransactions(transactions, {
+        type: "withdrawal",
+        search: "",
+        categoryNames: [],
+        accounts: [wallet],
+        startDate: "2026-06-05",
+      }),
+    ).toEqual([])
+  })
+
+  it("maps categories to meaningful icons with type fallbacks", () => {
+    expect(getTransactionIconName({ type: "withdrawal", categoryName: "Food & Dining" })).toBe(
+      "silverware-fork-knife",
+    )
+    expect(getTransactionIconName({ type: "transfer" })).toBe("swap-horizontal")
+    expect(getTransactionIconName({ type: "deposit" })).toBe("arrow-down-left")
+  })
+
+  it("builds a manual Firefly request with account ids", () => {
+    expect(
+      manualTransactionToStoreRequest({
+        type: "withdrawal",
+        date: new Date(2026, 5, 6, 14, 5),
+        amount: 250,
+        description: "Lunch",
+        sourceAccountId: "asset-1",
+        destinationAccountId: "expense-1",
+        categoryName: "Food",
+        tags: ["work"],
+        notes: "Team lunch",
+      }),
+    ).toEqual({
+      error_if_duplicate_hash: false,
+      apply_rules: true,
+      fire_webhooks: true,
+      transactions: [
+        {
+          type: "withdrawal",
+          date: "2026-06-06T14:05:00",
+          amount: "250.00",
+          description: "Lunch",
+          source_id: "asset-1",
+          destination_id: "expense-1",
+          category_name: "Food",
+          tags: ["work"],
+          notes: "Team lunch",
+        },
+      ],
+    })
+  })
+
+  it("builds a safe update request with the existing journal id", () => {
+    expect(
+      manualTransactionToUpdateRequest(
+        {
+          type: "withdrawal",
+          date: new Date(2026, 5, 6, 14, 5),
+          amount: 300,
+          description: "Updated lunch",
+          sourceAccountId: "asset-1",
+          destinationAccountId: "expense-1",
+          categoryName: "Food",
+          tags: [],
+        },
+        "journal-1",
+      ),
+    ).toEqual({
+      apply_rules: true,
+      fire_webhooks: true,
+      transactions: [
+        {
+          transaction_journal_id: "journal-1",
+          type: "withdrawal",
+          date: "2026-06-06T14:05:00",
+          amount: "300.00",
+          description: "Updated lunch",
+          source_id: "asset-1",
+          destination_id: "expense-1",
+          category_name: "Food",
+          tags: undefined,
+          notes: undefined,
+        },
+      ],
+    })
   })
 })

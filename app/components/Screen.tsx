@@ -28,6 +28,14 @@ interface BaseScreenProps {
    */
   children?: ReactNode
   /**
+   * Content fixed below the screen body and moved above the keyboard.
+   */
+  footer?: ReactNode
+  /**
+   * Style for the fixed footer container.
+   */
+  footerStyle?: StyleProp<ViewStyle>
+  /**
    * Style for the outer content container useful for padding & margin.
    */
   style?: StyleProp<ViewStyle>
@@ -252,6 +260,8 @@ export function Screen(props: ScreenProps) {
     safeAreaEdges,
     SystemBarsProps,
     systemBarStyle,
+    footer,
+    footerStyle,
   } = props
 
   const $containerInsets = useSafeAreaInsetsStyle(safeAreaEdges)
@@ -275,11 +285,14 @@ export function Screen(props: ScreenProps) {
         {...KeyboardAvoidingViewProps}
         style={[$styles.flex1, KeyboardAvoidingViewProps?.style]}
       >
-        {isNonScrolling(props.preset) ? (
-          <ScreenWithoutScrolling {...props} />
-        ) : (
-          <ScreenWithScrolling {...props} />
-        )}
+        <View style={$keyboardContent}>
+          {isNonScrolling(props.preset) ? (
+            <ScreenWithoutScrolling {...props} />
+          ) : (
+            <ScreenWithScrolling {...props} />
+          )}
+          {!!footer && <View style={footerStyle}>{footer}</View>}
+        </View>
       </KeyboardAvoidingView>
     </View>
   )
@@ -294,6 +307,11 @@ const $containerStyle: ViewStyle = {
 const $outerStyle: ViewStyle = {
   flex: 1,
   height: "100%",
+  width: "100%",
+}
+
+const $keyboardContent: ViewStyle = {
+  flex: 1,
   width: "100%",
 }
 

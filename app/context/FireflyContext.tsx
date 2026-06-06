@@ -19,11 +19,15 @@ import {
   FireflyBudget,
   FireflyCategory,
   FireflyTag,
+  FireflyTransaction,
   FlatTransaction,
+  StoreTransactionRequest,
+  UpdateTransactionRequest,
 } from "@/models/firefly"
 import { FireflyApi, FireflyProblem, normalizeBaseUrl } from "@/services/firefly/api"
 import {
   buildSummariesByCurrency,
+  clampMonthToPresent,
   flattenFireflyTransactions,
   getMonthRange,
   shiftMonth,
@@ -43,6 +47,7 @@ type FireflyContextType = {
   isTestingConnection: boolean
   connectionError?: string
   selectedMonth: Date
+  isMonthLoading: boolean
   accounts: LoadState<FireflyAccount[]>
   transactions: LoadState<FlatTransaction[]>
   categories: LoadState<FireflyCategory[]>
@@ -52,6 +57,9 @@ type FireflyContextType = {
   selectedCurrency?: string
   isRefreshing: boolean
   lastSyncedAt?: Date
+  transactionCreation: LoadState<FireflyTransaction | null>
+  transactionDetail: LoadState<FireflyTransaction | null>
+  transactionUpdate: LoadState<FireflyTransaction | null>
   setConnection: (baseUrl: string, token: string) => Promise<boolean>
   disconnect: () => void
   toggleHideAmounts: () => void
@@ -60,6 +68,12 @@ type FireflyContextType = {
   nextMonth: () => void
   setSelectedMonth: (month: Date) => void
   setSelectedCurrency: (currency: string) => void
+  createTransaction: (request: StoreTransactionRequest) => Promise<boolean>
+  resetTransactionCreation: () => void
+  loadTransaction: (id: string) => Promise<boolean>
+  resetTransactionDetail: () => void
+  updateTransaction: (id: string, request: UpdateTransactionRequest) => Promise<boolean>
+  resetTransactionUpdate: () => void
 }
 
 const emptyState = <T,>(data: T): LoadState<T> => ({ data, status: "idle" })
@@ -71,9 +85,10 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   const [storedHideAmounts, setStoredHideAmounts] = useMMKVString("Firefly.hideAmounts")
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [connectionError, setConnectionError] = useState<string>()
-  const [selectedMonth, setSelectedMonth] = useState(
+  const [selectedMonth, setSelectedMonthState] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   )
+  const [isMonthLoading, setIsMonthLoading] = useState(false)
   const [accounts, setAccounts] = useState(() => emptyState<FireflyAccount[]>([]))
   const [transactions, setTransactions] = useState(() => emptyState<FlatTransaction[]>([]))
   const [categories, setCategories] = useState(() => emptyState<FireflyCategory[]>([]))
@@ -82,6 +97,15 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   const [selectedCurrency, setSelectedCurrency] = useState<string>()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<Date>()
+  const [transactionCreation, setTransactionCreation] = useState(() =>
+    emptyState<FireflyTransaction | null>(null),
+  )
+  const [transactionDetail, setTransactionDetail] = useState(() =>
+    emptyState<FireflyTransaction | null>(null),
+  )
+  const [transactionUpdate, setTransactionUpdate] = useState(() =>
+    emptyState<FireflyTransaction | null>(null),
+  )
   const requestId = useRef(0)
 
   const hideAmounts = storedHideAmounts === "true"
@@ -137,6 +161,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       const results = [accountResult, transactionResult, categoryResult, budgetResult, tagResult]
       if (results.some((result) => result.kind === "ok")) setLastSyncedAt(new Date())
       setIsRefreshing(false)
+      setIsMonthLoading(false)
     },
     [
       accounts.data.length,
@@ -201,7 +226,73 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setSelectedCurrency(undefined)
     setLastSyncedAt(undefined)
     setIsRefreshing(false)
+    setIsMonthLoading(false)
+    setTransactionCreation(emptyState(null))
+    setTransactionDetail(emptyState(null))
+    setTransactionUpdate(emptyState(null))
   }, [setStoredBaseUrl, setStoredToken])
+
+  const createTransaction = useCallback(
+    async (request: StoreTransactionRequest) => {
+      if (!isConfigured) return false
+      setTransactionCreation({ data: null, status: "loading" })
+      const result = await new FireflyApi(baseUrl, token).createTransaction(request)
+      if (result.kind !== "ok") {
+        setTransactionCreation({ data: null, status: "error", error: result })
+        return false
+      }
+      setTransactionCreation({ data: result.data, status: "ready" })
+      return true
+    },
+    [baseUrl, isConfigured, token],
+  )
+  const resetTransactionCreation = useCallback(() => setTransactionCreation(emptyState(null)), [])
+  const loadTransaction = useCallback(
+    async (id: string) => {
+      if (!isConfigured) return false
+      setTransactionDetail({ data: null, status: "loading" })
+      const result = await new FireflyApi(baseUrl, token).getTransaction(id)
+      if (result.kind !== "ok") {
+        setTransactionDetail({ data: null, status: "error", error: result })
+        return false
+      }
+      setTransactionDetail({ data: result.data, status: "ready" })
+      return true
+    },
+    [baseUrl, isConfigured, token],
+  )
+  const resetTransactionDetail = useCallback(() => setTransactionDetail(emptyState(null)), [])
+  const updateTransaction = useCallback(
+    async (id: string, request: UpdateTransactionRequest) => {
+      if (!isConfigured) return false
+      setTransactionUpdate({ data: null, status: "loading" })
+      const result = await new FireflyApi(baseUrl, token).updateTransaction(id, request)
+      if (result.kind !== "ok") {
+        setTransactionUpdate({ data: null, status: "error", error: result })
+        return false
+      }
+      setTransactionUpdate({ data: result.data, status: "ready" })
+      setTransactionDetail({ data: result.data, status: "ready" })
+      return true
+    },
+    [baseUrl, isConfigured, token],
+  )
+  const resetTransactionUpdate = useCallback(() => setTransactionUpdate(emptyState(null)), [])
+
+  const changeSelectedMonth = useCallback(
+    (month: Date) => {
+      const nextMonth = clampMonthToPresent(month)
+      if (
+        nextMonth.getFullYear() === selectedMonth.getFullYear() &&
+        nextMonth.getMonth() === selectedMonth.getMonth()
+      ) {
+        return
+      }
+      setIsMonthLoading(true)
+      setSelectedMonthState(nextMonth)
+    },
+    [selectedMonth],
+  )
 
   const value = useMemo<FireflyContextType>(
     () => ({
@@ -212,6 +303,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       isTestingConnection,
       connectionError,
       selectedMonth,
+      isMonthLoading,
       accounts,
       transactions,
       categories,
@@ -221,28 +313,44 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       selectedCurrency,
       isRefreshing,
       lastSyncedAt,
+      transactionCreation,
+      transactionDetail,
+      transactionUpdate,
       setConnection,
       disconnect,
       toggleHideAmounts: () => setStoredHideAmounts(hideAmounts ? "false" : "true"),
       refresh: () => load(true),
-      previousMonth: () => setSelectedMonth((month) => shiftMonth(month, -1)),
-      nextMonth: () => setSelectedMonth((month) => shiftMonth(month, 1)),
-      setSelectedMonth,
+      previousMonth: () => changeSelectedMonth(shiftMonth(selectedMonth, -1)),
+      nextMonth: () => changeSelectedMonth(shiftMonth(selectedMonth, 1)),
+      setSelectedMonth: changeSelectedMonth,
       setSelectedCurrency,
+      createTransaction,
+      resetTransactionCreation,
+      loadTransaction,
+      resetTransactionDetail,
+      updateTransaction,
+      resetTransactionUpdate,
     }),
     [
       accounts,
       baseUrl,
       budgets,
       categories,
+      changeSelectedMonth,
       connectionError,
+      createTransaction,
       disconnect,
       hideAmounts,
       isConfigured,
+      isMonthLoading,
       isRefreshing,
       isTestingConnection,
       lastSyncedAt,
+      loadTransaction,
       load,
+      resetTransactionDetail,
+      resetTransactionCreation,
+      resetTransactionUpdate,
       selectedCurrency,
       selectedMonth,
       setConnection,
@@ -250,7 +358,11 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       summariesByCurrency,
       tags,
       token,
+      transactionCreation,
+      transactionDetail,
+      transactionUpdate,
       transactions,
+      updateTransaction,
     ],
   )
 

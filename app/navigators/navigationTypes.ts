@@ -7,6 +7,8 @@ import {
 } from "@react-navigation/native"
 import { NativeStackScreenProps } from "@react-navigation/native-stack"
 
+import type { FlatTransaction } from "@/models/firefly"
+
 export type MainTabParamList = {
   Home: undefined
   Accounts: undefined
@@ -25,6 +27,9 @@ export type DemoTabParamList = {
 export type AppStackParamList = {
   Setup: undefined
   Main: NavigatorScreenParams<MainTabParamList>
+  AddTransaction: undefined
+  TransactionDetails: { transaction: FlatTransaction }
+  EditTransaction: { groupId: string; journalId?: string }
   Login: undefined
   Welcome: undefined
   Demo: NavigatorScreenParams<DemoTabParamList>

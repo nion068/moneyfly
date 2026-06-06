@@ -20,7 +20,7 @@ describe("FireflyApi", () => {
       .mockResolvedValueOnce({ ok: true, data: { data: [{ id: "5" }] } })
       .mockResolvedValueOnce({ ok: true, data: { data: [{ id: "6" }] } })
       .mockResolvedValueOnce({ ok: true, data: { data: [{ id: "7" }] } })
-    ;(create as jest.Mock).mockReturnValue({ get, post: jest.fn() })
+    ;(create as jest.Mock).mockReturnValue({ get, post: jest.fn(), put: jest.fn() })
 
     const result = await new FireflyApi("https://firefly.example.com", "token").getAccounts()
 
@@ -30,5 +30,101 @@ describe("FireflyApi", () => {
     })
     expect(get).toHaveBeenCalledTimes(7)
     expect(get).toHaveBeenLastCalledWith("api/v1/accounts", { page: 7, type: "all" })
+  })
+
+  it("creates a transaction through Firefly", async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        data: {
+          id: "group-1",
+          attributes: { transactions: [] },
+        },
+      },
+    })
+    ;(create as jest.Mock).mockReturnValue({ get: jest.fn(), post, put: jest.fn() })
+    const request = {
+      error_if_duplicate_hash: false,
+      apply_rules: true,
+      fire_webhooks: true,
+      transactions: [
+        {
+          type: "withdrawal" as const,
+          date: "2026-06-06T12:00:00",
+          amount: "10.00",
+          description: "Lunch",
+          source_id: "asset-1",
+          destination_id: "expense-1",
+        },
+      ],
+    }
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").createTransaction(request),
+    ).resolves.toEqual({
+      kind: "ok",
+      data: { id: "group-1", attributes: { transactions: [] } },
+    })
+    expect(post).toHaveBeenCalledWith("api/v1/transactions", request)
+  })
+
+  it("loads a transaction group by id", async () => {
+    const get = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        data: {
+          id: "group-1",
+          attributes: { transactions: [{ transaction_journal_id: "journal-1" }] },
+        },
+      },
+    })
+    ;(create as jest.Mock).mockReturnValue({ get, post: jest.fn(), put: jest.fn() })
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").getTransaction("group-1"),
+    ).resolves.toEqual({
+      kind: "ok",
+      data: {
+        id: "group-1",
+        attributes: { transactions: [{ transaction_journal_id: "journal-1" }] },
+      },
+    })
+    expect(get).toHaveBeenCalledWith("api/v1/transactions/group-1")
+  })
+
+  it("updates a transaction group through Firefly", async () => {
+    const put = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        data: {
+          id: "group-1",
+          attributes: { transactions: [] },
+        },
+      },
+    })
+    ;(create as jest.Mock).mockReturnValue({ get: jest.fn(), post: jest.fn(), put })
+    const request = {
+      apply_rules: true,
+      fire_webhooks: true,
+      transactions: [
+        {
+          transaction_journal_id: "journal-1",
+          type: "withdrawal" as const,
+          date: "2026-06-06T12:00:00",
+          amount: "20.00",
+          description: "Updated lunch",
+          source_id: "asset-1",
+          destination_id: "expense-1",
+        },
+      ],
+    }
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").updateTransaction("group-1", request),
+    ).resolves.toEqual({
+      kind: "ok",
+      data: { id: "group-1", attributes: { transactions: [] } },
+    })
+    expect(put).toHaveBeenCalledWith("api/v1/transactions/group-1", request)
   })
 })

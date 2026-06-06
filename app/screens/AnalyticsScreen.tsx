@@ -8,6 +8,7 @@ import {
   ProgressBar,
   SectionHeader,
 } from "@/components/firefly/FinancePrimitives"
+import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { useFirefly } from "@/context/FireflyContext"
@@ -32,6 +33,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = () => {
     selectedCurrency,
     setSelectedCurrency,
     refresh,
+    isRefreshing,
   } = useFirefly()
   const effectiveCurrency = selectedCurrency ?? summariesByCurrency[0]?.currencyCode
   const currencyTransactions = transactions.data.filter(
@@ -101,7 +103,10 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = () => {
         </View>
       )}
 
-      {transactions.status === "loading" && <Text text="Loading Firefly analytics..." />}
+      {isRefreshing && <LoadingIndicator label="Refreshing analytics..." compact />}
+      {transactions.status === "loading" && transactions.data.length === 0 && (
+        <LoadingIndicator label="Loading analytics..." />
+      )}
       {transactions.status === "error" && (
         <Text
           text={`${transactions.error?.message} Tap to retry.`}

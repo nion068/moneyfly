@@ -5,9 +5,12 @@ import {
   FireflyAccount,
   FireflyTransaction,
   FlatTransaction,
+  ManualTransactionInput,
   MonthlySummary,
   StoreTransactionRequest,
   TransactionDraft,
+  TransactionType,
+  UpdateTransactionRequest,
 } from "@/models/firefly"
 
 const categoryColors = ["#ff7a1a", "#a548f5", "#86cdea", "#9a958d", "#d87162", "#ded8ce"]
@@ -131,6 +134,26 @@ export function findCashWalletName(accounts: FireflyAccount[]) {
   return findCashWallet(accounts)?.attributes.name ?? "Cash wallet"
 }
 
+export function isOwnedAccount(account: FireflyAccount) {
+  const type = account.attributes.type.toLowerCase()
+  return (
+    account.attributes.active !== false &&
+    (type.includes("asset") || type.includes("cash") || type.includes("liabilit"))
+  )
+}
+
+export function isExpenseAccount(account: FireflyAccount) {
+  return (
+    account.attributes.active !== false && account.attributes.type.toLowerCase().includes("expense")
+  )
+}
+
+export function isRevenueAccount(account: FireflyAccount) {
+  return (
+    account.attributes.active !== false && account.attributes.type.toLowerCase().includes("revenue")
+  )
+}
+
 export function accountToSummary(
   account: FireflyAccount,
   transactions: FlatTransaction[] = [],
@@ -224,12 +247,100 @@ export function shiftMonth(month: Date, offset: number) {
   return new Date(month.getFullYear(), month.getMonth() + offset, 1)
 }
 
+export function startOfCurrentMonth(now = new Date()) {
+  return new Date(now.getFullYear(), now.getMonth(), 1)
+}
+
+export function clampMonthToPresent(month: Date, now = new Date()) {
+  const normalized = new Date(month.getFullYear(), month.getMonth(), 1)
+  const currentMonth = startOfCurrentMonth(now)
+  return normalized > currentMonth ? currentMonth : normalized
+}
+
+export function formatLocalDateTime(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}:00`
+}
+
+export function formatDateKey(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 export function groupTransactionsByDate(transactions: FlatTransaction[]) {
   return transactions.reduce<Record<string, FlatTransaction[]>>((result, transaction) => {
     const day = transaction.date.slice(0, 10)
     result[day] = [...(result[day] ?? []), transaction]
     return result
   }, {})
+}
+
+export type LocalTransactionFilters = {
+  type: "all" | TransactionType
+  search: string
+  categoryNames: string[]
+  accounts: FireflyAccount[]
+  startDate?: string
+  endDate?: string
+}
+
+export function filterTransactions(
+  transactions: FlatTransaction[],
+  filters: LocalTransactionFilters,
+) {
+  const query = filters.search.trim().toLowerCase()
+  return transactions.filter((transaction) => {
+    if (filters.type !== "all" && transaction.type !== filters.type) return false
+    if (
+      filters.categoryNames.length > 0 &&
+      !filters.categoryNames.includes(transaction.categoryName ?? "Uncategorized")
+    ) {
+      return false
+    }
+    if (
+      filters.accounts.length > 0 &&
+      !filters.accounts.some(
+        (account) =>
+          transaction.sourceId === account.id ||
+          transaction.destinationId === account.id ||
+          transaction.sourceName === account.attributes.name ||
+          transaction.destinationName === account.attributes.name,
+      )
+    ) {
+      return false
+    }
+    const day = transaction.date.slice(0, 10)
+    if (filters.startDate && day < filters.startDate) return false
+    if (filters.endDate && day > filters.endDate) return false
+    if (!query) return true
+    return [
+      transaction.description,
+      transaction.categoryName,
+      transaction.sourceName,
+      transaction.destinationName,
+      ...transaction.tags,
+    ].some((value) => value?.toLowerCase().includes(query))
+  })
+}
+
+export function getTransactionIconName(
+  transaction: Pick<FlatTransaction, "categoryName" | "type">,
+) {
+  const category = transaction.categoryName?.toLowerCase() ?? ""
+  if (transaction.type === "transfer") return "swap-horizontal"
+  if (category.match(/food|dining|restaurant|lunch|grocery/)) return "silverware-fork-knife"
+  if (category.match(/transport|travel|taxi|ride|car|fuel/)) return "car-outline"
+  if (category.match(/shop|clothing|purchase/)) return "shopping-outline"
+  if (category.match(/house|rent|mortgage|home/)) return "home-outline"
+  if (category.match(/utilit|bill|electric|water|internet/)) return "receipt-text-outline"
+  if (category.match(/health|medical|fitness|doctor/)) return "heart-pulse"
+  if (category.match(/entertain|movie|game|music/)) return "movie-open-outline"
+  if (category.match(/education|school|book|course/)) return "school-outline"
+  if (category.match(/gift|donation/)) return "gift-outline"
+  if (category.match(/salary|income|revenue/)) return "cash-plus"
+  return transaction.type === "deposit" ? "arrow-down-left" : "arrow-up-right"
 }
 
 export function draftToStoreRequest(
@@ -252,5 +363,44 @@ export function draftToStoreRequest(
         notes: draft.notes,
       },
     ],
+  }
+}
+
+export function manualTransactionToStoreRequest(
+  input: ManualTransactionInput,
+): StoreTransactionRequest {
+  return {
+    error_if_duplicate_hash: false,
+    apply_rules: true,
+    fire_webhooks: true,
+    transactions: [
+      {
+        type: input.type,
+        date: formatLocalDateTime(input.date),
+        amount: input.amount.toFixed(2),
+        description: input.description.trim(),
+        source_id: input.sourceAccountId,
+        destination_id: input.destinationAccountId,
+        category_name: input.categoryName?.trim() || undefined,
+        tags: input.tags.length > 0 ? input.tags : undefined,
+        notes: input.notes?.trim() || undefined,
+      },
+    ],
+  }
+}
+
+export function manualTransactionToUpdateRequest(
+  input: ManualTransactionInput,
+  journalId: string,
+): UpdateTransactionRequest {
+  const request = manualTransactionToStoreRequest(input)
+
+  return {
+    apply_rules: request.apply_rules,
+    fire_webhooks: request.fire_webhooks,
+    transactions: request.transactions.map((transaction) => ({
+      ...transaction,
+      transaction_journal_id: journalId,
+    })),
   }
 }

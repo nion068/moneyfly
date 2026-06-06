@@ -36,18 +36,45 @@ type MetricPillProps = {
   value: string
   tone: "income" | "expense" | "saved"
   icon: string
+  compact?: boolean
+  centered?: boolean
+  dense?: boolean
 }
 
-export function MetricPill({ label, value, tone, icon }: MetricPillProps) {
+export function MetricPill({
+  label,
+  value,
+  tone,
+  icon,
+  compact = false,
+  centered = false,
+  dense = false,
+}: MetricPillProps) {
   const { themed } = useAppTheme()
 
   return (
-    <View style={themed([$metricPill, $metricTone[tone]])}>
-      <View style={themed([$metricIcon, $metricIconTone[tone]])}>
-        <Text text={icon} style={themed($metricIconText)} />
+    <View
+      style={themed([
+        $metricPill,
+        compact && $compactMetricPill,
+        dense && $denseMetricPill,
+        centered && $centeredMetricPill,
+        $metricTone[tone],
+      ])}
+    >
+      <View style={themed([$metricIcon, dense && $denseMetricIcon, $metricIconTone[tone]])}>
+        <Text text={icon} style={themed([$metricIconText, dense && $denseMetricIconText])} />
       </View>
-      <Text text={label} style={themed($mutedLabel)} />
-      <Text text={value} style={themed([$metricValue, $metricValueTone[tone]])} />
+      <Text text={label} style={themed([$mutedLabel, dense && $denseMutedLabel])} />
+      <Text
+        text={value}
+        style={themed([
+          $metricValue,
+          compact && $compactMetricValue,
+          dense && $denseMetricValue,
+          $metricValueTone[tone],
+        ])}
+      />
     </View>
   )
 }
@@ -131,6 +158,23 @@ const $metricPill: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   padding: spacing.md,
 })
 
+const $compactMetricPill: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  minHeight: 82,
+  padding: spacing.sm,
+})
+
+const $denseMetricPill: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.xxxs,
+  minHeight: 68,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
+})
+
+const $centeredMetricPill: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  justifyContent: "center",
+})
+
 const $metricTone: Record<MetricPillProps["tone"], ThemedStyle<ViewStyle>> = {
   income: () => ({ backgroundColor: "rgba(62, 165, 118, 0.22)" }),
   expense: () => ({ backgroundColor: "rgba(216, 113, 98, 0.18)" }),
@@ -145,6 +189,12 @@ const $metricIcon: ThemedStyle<ViewStyle> = () => ({
   width: 28,
 })
 
+const $denseMetricIcon: ThemedStyle<ViewStyle> = () => ({
+  borderRadius: 11,
+  height: 22,
+  width: 22,
+})
+
 const $metricIconTone: Record<MetricPillProps["tone"], ThemedStyle<ViewStyle>> = {
   income: ({ colors }) => ({ backgroundColor: colors.palette.primary500 }),
   expense: ({ colors }) => ({ backgroundColor: colors.palette.tertiary300 }),
@@ -157,16 +207,36 @@ const $metricIconText: ThemedStyle<TextStyle> = ({ colors }) => ({
   lineHeight: 17,
 })
 
+const $denseMetricIconText: ThemedStyle<TextStyle> = () => ({
+  fontSize: 12,
+  lineHeight: 14,
+})
+
 const $mutedLabel: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
   fontSize: 13,
   lineHeight: 17,
 })
 
+const $denseMutedLabel: ThemedStyle<TextStyle> = () => ({
+  fontSize: 12,
+  lineHeight: 14,
+})
+
 const $metricValue: ThemedStyle<TextStyle> = ({ typography }) => ({
   fontFamily: typography.primary.semiBold,
   fontSize: 18,
   lineHeight: 22,
+})
+
+const $compactMetricValue: ThemedStyle<TextStyle> = () => ({
+  fontSize: 16,
+  lineHeight: 20,
+})
+
+const $denseMetricValue: ThemedStyle<TextStyle> = () => ({
+  fontSize: 15,
+  lineHeight: 18,
 })
 
 const $metricValueTone: Record<MetricPillProps["tone"], ThemedStyle<TextStyle>> = {

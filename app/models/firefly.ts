@@ -81,6 +81,18 @@ export type FireflyTag = {
 
 export type TransactionType = "withdrawal" | "deposit" | "transfer"
 
+export type ManualTransactionInput = {
+  type: TransactionType
+  date: Date
+  amount: number
+  description: string
+  sourceAccountId: string
+  destinationAccountId: string
+  categoryName?: string
+  tags: string[]
+  notes?: string
+}
+
 export type FlatTransaction = {
   groupId: string
   journalId?: string
@@ -147,6 +159,7 @@ export type TransactionDraft = {
 }
 
 export type StoreTransactionSplit = {
+  transaction_journal_id?: string
   type: TransactionType
   date: string
   amount: string
@@ -163,6 +176,12 @@ export type StoreTransactionSplit = {
 
 export type StoreTransactionRequest = {
   error_if_duplicate_hash: boolean
+  apply_rules: boolean
+  fire_webhooks: boolean
+  transactions: StoreTransactionSplit[]
+}
+
+export type UpdateTransactionRequest = {
   apply_rules: boolean
   fire_webhooks: boolean
   transactions: StoreTransactionSplit[]

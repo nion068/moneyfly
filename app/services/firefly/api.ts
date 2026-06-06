@@ -9,6 +9,7 @@ import {
   FireflyTag,
   FireflyTransaction,
   StoreTransactionRequest,
+  UpdateTransactionRequest,
 } from "@/models/firefly"
 
 export type FireflyProblem = {
@@ -91,6 +92,29 @@ export class FireflyApi {
   ): Promise<FireflyResult<FireflyTransaction>> {
     const response: ApiResponse<FireflySingleEnvelope<FireflyTransaction>> =
       await this.apisauce.post("api/v1/transactions", request)
+
+    if (!response.ok) return toProblem(response)
+    if (!response.data?.data) return { kind: "bad-data", message: "Firefly returned invalid data." }
+
+    return { kind: "ok", data: response.data.data }
+  }
+
+  async getTransaction(id: string): Promise<FireflyResult<FireflyTransaction>> {
+    const response: ApiResponse<FireflySingleEnvelope<FireflyTransaction>> =
+      await this.apisauce.get(`api/v1/transactions/${id}`)
+
+    if (!response.ok) return toProblem(response)
+    if (!response.data?.data) return { kind: "bad-data", message: "Firefly returned invalid data." }
+
+    return { kind: "ok", data: response.data.data }
+  }
+
+  async updateTransaction(
+    id: string,
+    request: UpdateTransactionRequest,
+  ): Promise<FireflyResult<FireflyTransaction>> {
+    const response: ApiResponse<FireflySingleEnvelope<FireflyTransaction>> =
+      await this.apisauce.put(`api/v1/transactions/${id}`, request)
 
     if (!response.ok) return toProblem(response)
     if (!response.data?.data) return { kind: "bad-data", message: "Firefly returned invalid data." }

@@ -1,5 +1,5 @@
 import { FC, useState } from "react"
-import { TextStyle, View, ViewStyle } from "react-native"
+import { ActivityIndicator, TextStyle, View, ViewStyle } from "react-native"
 
 import { Button } from "@/components/Button"
 import { FinanceCard } from "@/components/firefly/FinancePrimitives"
@@ -14,7 +14,10 @@ import type { ThemedStyle } from "@/theme/types"
 type SetupScreenProps = AppStackScreenProps<"Setup">
 
 export const SetupScreen: FC<SetupScreenProps> = () => {
-  const { themed } = useAppTheme()
+  const {
+    themed,
+    theme: { colors },
+  } = useAppTheme()
   const { connectionError, isTestingConnection, setConnection } = useFirefly()
   const [baseUrl, setBaseUrl] = useState("")
   const [token, setToken] = useState("")
@@ -80,6 +83,11 @@ export const SetupScreen: FC<SetupScreenProps> = () => {
         <Button
           text={isTestingConnection ? "Testing connection..." : "Connect"}
           preset="filled"
+          LeftAccessory={
+            isTestingConnection
+              ? () => <ActivityIndicator color={colors.palette.surfaceDim} size="small" />
+              : undefined
+          }
           disabled={!canSubmit || isTestingConnection}
           onPress={connect}
           style={themed($primaryButton)}
