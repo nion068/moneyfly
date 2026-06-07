@@ -280,6 +280,7 @@ function MoneyAgentDraftCard({
   } = useAppTheme()
   const { drafts, updateDraft, confirmDraft, discardDraft } = useMoneyAgent()
   const draft = drafts.find((item) => item.id === draftId)
+  const [isExpanded, setIsExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
   const [selector, setSelector] = useState<"source" | "destination" | "category" | "budget" | null>(
     null,
@@ -315,30 +316,50 @@ function MoneyAgentDraftCard({
     setSelector(null)
   }
 
+  const toggleExpanded = () => {
+    setIsExpanded((expanded) => {
+      if (expanded) setSelector(null)
+      return !expanded
+    })
+  }
+
   return (
     <FinanceCard style={themed([$draftCard, currentDraft.status === "failed" && $draftCardFailed])}>
-      <View style={themed($draftHeader)}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${isExpanded ? "Collapse" : "Expand"} transaction draft`}
+        accessibilityState={{ expanded: isExpanded }}
+        onPress={toggleExpanded}
+        style={({ pressed }) => themed([$draftHeader, pressed && $draftHeaderPressed])}
+      >
         <View style={themed($draftTitleRow)}>
           <View style={themed($draftIcon)}>
             <MaterialCommunityIcons name="creation" size={17} color={colors.palette.surfaceDim} />
           </View>
           <Text text="TRANSACTION DRAFT" style={themed($draftEyebrow)} />
         </View>
-        <View style={themed($draftReadiness)}>
-          <View
-            style={themed([
-              $readinessDot,
-              currentDraft.missingFields.length > 0 && $readinessDotWarning,
-            ])}
-          />
-          <Text
-            text={currentDraft.missingFields.length > 0 ? "Needs details" : currentDraft.status}
-            style={themed($draftStatus)}
+        <View style={themed($draftHeaderSummary)}>
+          <View style={themed($draftReadiness)}>
+            <View
+              style={themed([
+                $readinessDot,
+                currentDraft.missingFields.length > 0 && $readinessDotWarning,
+              ])}
+            />
+            <Text
+              text={currentDraft.missingFields.length > 0 ? "Needs details" : currentDraft.status}
+              style={themed($draftStatus)}
+            />
+          </View>
+          <MaterialCommunityIcons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={22}
+            color={colors.textDim}
           />
         </View>
-      </View>
+      </Pressable>
 
-      <View style={themed($amountRow)}>
+      <View style={themed([$amountRow, !isExpanded && $amountRowCollapsed])}>
         <View>
           <Text text="Amount" style={themed($fieldLabel)} />
           <Text
@@ -351,194 +372,205 @@ function MoneyAgentDraftCard({
         </View>
       </View>
 
-      {editing ? (
-        <View style={themed($draftEditor)}>
-          <TextField
-            label="Amount"
-            keyboardType="numeric"
-            value={currentDraft.amount}
-            onChangeText={(value) => {
-              const next = { ...currentDraft, amount: value }
-              setLocalDraft(next)
-              updateDraft(next)
-            }}
-          />
-          <TextField
-            label="Date"
-            value={currentDraft.date}
-            onChangeText={(value) => {
-              const next = { ...currentDraft, date: value }
-              setLocalDraft(next)
-              updateDraft(next)
-            }}
-          />
-          <TextField
-            label="Description"
-            value={currentDraft.description}
-            onChangeText={(value) => {
-              const next = { ...currentDraft, description: value }
-              setLocalDraft(next)
-              updateDraft(next)
-            }}
-          />
-          <TextField
-            label="Notes"
-            value={currentDraft.notes ?? ""}
-            onChangeText={(value) => {
-              const next = { ...currentDraft, notes: value }
-              setLocalDraft(next)
-              updateDraft(next)
-            }}
-          />
+      {isExpanded && (
+        <>
+          {editing ? (
+            <View style={themed($draftEditor)}>
+              <TextField
+                label="Amount"
+                keyboardType="numeric"
+                value={currentDraft.amount}
+                onChangeText={(value) => {
+                  const next = { ...currentDraft, amount: value }
+                  setLocalDraft(next)
+                  updateDraft(next)
+                }}
+              />
+              <TextField
+                label="Date"
+                value={currentDraft.date}
+                onChangeText={(value) => {
+                  const next = { ...currentDraft, date: value }
+                  setLocalDraft(next)
+                  updateDraft(next)
+                }}
+              />
+              <TextField
+                label="Description"
+                value={currentDraft.description}
+                onChangeText={(value) => {
+                  const next = { ...currentDraft, description: value }
+                  setLocalDraft(next)
+                  updateDraft(next)
+                }}
+              />
+              <TextField
+                label="Notes"
+                value={currentDraft.notes ?? ""}
+                onChangeText={(value) => {
+                  const next = { ...currentDraft, notes: value }
+                  setLocalDraft(next)
+                  updateDraft(next)
+                }}
+              />
 
-          <View style={themed($selectorGrid)}>
-            <Pressable onPress={() => setSelector("source")} style={themed($selectorButton)}>
-              <Text text="Source" style={themed($selectorLabel)} />
-              <Text
-                text={resolveName(accounts, currentDraft.sourceAccountId)}
-                style={themed($selectorValue)}
-              />
-            </Pressable>
-            <Pressable onPress={() => setSelector("destination")} style={themed($selectorButton)}>
-              <Text text="Destination" style={themed($selectorLabel)} />
-              <Text
-                text={resolveName(accounts, currentDraft.destinationAccountId)}
-                style={themed($selectorValue)}
-              />
-            </Pressable>
-            <Pressable onPress={() => setSelector("category")} style={themed($selectorButton)}>
-              <Text text="Category" style={themed($selectorLabel)} />
-              <Text
-                text={resolveName(categories, currentDraft.categoryId)}
-                style={themed($selectorValue)}
-              />
-            </Pressable>
-            <Pressable onPress={() => setSelector("budget")} style={themed($selectorButton)}>
-              <Text text="Budget" style={themed($selectorLabel)} />
-              <Text
-                text={resolveName(budgets, currentDraft.budgetId)}
-                style={themed($selectorValue)}
-              />
-            </Pressable>
-          </View>
-        </View>
-      ) : (
-        <View style={themed($draftBody)}>
-          <View style={themed($detailsGrid)}>
-            <DraftField label="Description" value={currentDraft.description} />
-            <DraftField label="Category" value={resolveName(categories, currentDraft.categoryId)} />
-            <DraftField
-              label="Source account"
-              value={resolveName(accounts, currentDraft.sourceAccountId)}
-            />
-            <DraftField label="Date" value={currentDraft.date} />
-            <DraftField
-              label="Destination"
-              value={resolveName(accounts, currentDraft.destinationAccountId)}
-            />
-            <DraftField label="Budget" value={resolveName(budgets, currentDraft.budgetId)} />
-          </View>
-          {!!currentDraft.notes && (
-            <View style={themed($notesBlock)}>
-              <Text text="Notes" style={themed($fieldLabel)} />
-              <Text text={currentDraft.notes} style={themed($draftNotes)} />
+              <View style={themed($selectorGrid)}>
+                <Pressable onPress={() => setSelector("source")} style={themed($selectorButton)}>
+                  <Text text="Source" style={themed($selectorLabel)} />
+                  <Text
+                    text={resolveName(accounts, currentDraft.sourceAccountId)}
+                    style={themed($selectorValue)}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => setSelector("destination")}
+                  style={themed($selectorButton)}
+                >
+                  <Text text="Destination" style={themed($selectorLabel)} />
+                  <Text
+                    text={resolveName(accounts, currentDraft.destinationAccountId)}
+                    style={themed($selectorValue)}
+                  />
+                </Pressable>
+                <Pressable onPress={() => setSelector("category")} style={themed($selectorButton)}>
+                  <Text text="Category" style={themed($selectorLabel)} />
+                  <Text
+                    text={resolveName(categories, currentDraft.categoryId)}
+                    style={themed($selectorValue)}
+                  />
+                </Pressable>
+                <Pressable onPress={() => setSelector("budget")} style={themed($selectorButton)}>
+                  <Text text="Budget" style={themed($selectorLabel)} />
+                  <Text
+                    text={resolveName(budgets, currentDraft.budgetId)}
+                    style={themed($selectorValue)}
+                  />
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={themed($draftBody)}>
+              <View style={themed($detailsGrid)}>
+                <DraftField label="Description" value={currentDraft.description} />
+                <DraftField
+                  label="Category"
+                  value={resolveName(categories, currentDraft.categoryId)}
+                />
+                <DraftField
+                  label="Source account"
+                  value={resolveName(accounts, currentDraft.sourceAccountId)}
+                />
+                <DraftField label="Date" value={currentDraft.date} />
+                <DraftField
+                  label="Destination"
+                  value={resolveName(accounts, currentDraft.destinationAccountId)}
+                />
+                <DraftField label="Budget" value={resolveName(budgets, currentDraft.budgetId)} />
+              </View>
+              {!!currentDraft.notes && (
+                <View style={themed($notesBlock)}>
+                  <Text text="Notes" style={themed($fieldLabel)} />
+                  <Text text={currentDraft.notes} style={themed($draftNotes)} />
+                </View>
+              )}
+              {currentDraft.missingFields.length > 0 && (
+                <Text
+                  text={`Missing: ${currentDraft.missingFields.join(", ")}`}
+                  style={themed($draftMissing)}
+                />
+              )}
+              {!!currentDraft.errorMessage && (
+                <Text text={currentDraft.errorMessage} style={themed($draftError)} />
+              )}
             </View>
           )}
-          {currentDraft.missingFields.length > 0 && (
-            <Text
-              text={`Missing: ${currentDraft.missingFields.join(", ")}`}
-              style={themed($draftMissing)}
+
+          <View style={themed($draftActions)}>
+            <DraftActionButton
+              icon={editing ? "content-save-outline" : "pencil-outline"}
+              label={editing ? "Save" : "Edit"}
+              position="first"
+              disabled={currentDraft.status === "confirming" || currentDraft.status === "confirmed"}
+              onPress={() => {
+                if (editing) {
+                  updateDraft(currentDraft)
+                  setLocalDraft(undefined)
+                  setEditing(false)
+                  return
+                }
+                setIsExpanded(true)
+                setLocalDraft(draft)
+                setEditing(true)
+              }}
             />
-          )}
-          {!!currentDraft.errorMessage && (
-            <Text text={currentDraft.errorMessage} style={themed($draftError)} />
-          )}
-        </View>
-      )}
+            <DraftActionButton
+              icon={currentDraft.status === "confirming" ? "loading" : "check"}
+              label={currentDraft.status === "confirming" ? "Saving" : "Confirm"}
+              tone="confirm"
+              disabled={
+                currentDraft.missingFields.length > 0 ||
+                currentDraft.status === "confirming" ||
+                currentDraft.status === "confirmed" ||
+                currentDraft.status === "discarded"
+              }
+              onPress={() => {
+                setLocalDraft(undefined)
+                setEditing(false)
+                void confirmDraft(currentDraft.id)
+              }}
+            />
+            <DraftActionButton
+              icon="close"
+              label="Discard"
+              tone="discard"
+              position="last"
+              disabled={
+                currentDraft.status === "confirming" ||
+                currentDraft.status === "confirmed" ||
+                currentDraft.status === "discarded"
+              }
+              onPress={() => {
+                setLocalDraft(undefined)
+                setEditing(false)
+                discardDraft(currentDraft.id)
+              }}
+            />
+          </View>
 
-      <View style={themed($draftActions)}>
-        <DraftActionButton
-          icon={editing ? "content-save-outline" : "pencil-outline"}
-          label={editing ? "Save" : "Edit"}
-          position="first"
-          disabled={currentDraft.status === "confirming" || currentDraft.status === "confirmed"}
-          onPress={() => {
-            if (editing) {
-              updateDraft(currentDraft)
-              setLocalDraft(undefined)
-              setEditing(false)
-              return
+          <SelectionSheet
+            visible={selector !== null}
+            title={
+              selector === "source"
+                ? "Source account"
+                : selector === "destination"
+                  ? "Destination account"
+                  : selector === "category"
+                    ? "Category"
+                    : "Budget"
             }
-            setLocalDraft(draft)
-            setEditing(true)
-          }}
-        />
-        <DraftActionButton
-          icon={currentDraft.status === "confirming" ? "loading" : "check"}
-          label={currentDraft.status === "confirming" ? "Saving" : "Confirm"}
-          tone="confirm"
-          disabled={
-            currentDraft.missingFields.length > 0 ||
-            currentDraft.status === "confirming" ||
-            currentDraft.status === "confirmed" ||
-            currentDraft.status === "discarded"
-          }
-          onPress={() => {
-            setLocalDraft(undefined)
-            setEditing(false)
-            void confirmDraft(currentDraft.id)
-          }}
-        />
-        <DraftActionButton
-          icon="close"
-          label="Discard"
-          tone="discard"
-          position="last"
-          disabled={
-            currentDraft.status === "confirming" ||
-            currentDraft.status === "confirmed" ||
-            currentDraft.status === "discarded"
-          }
-          onPress={() => {
-            setLocalDraft(undefined)
-            setEditing(false)
-            discardDraft(currentDraft.id)
-          }}
-        />
-      </View>
-
-      <SelectionSheet
-        visible={selector !== null}
-        title={
-          selector === "source"
-            ? "Source account"
-            : selector === "destination"
-              ? "Destination account"
-              : selector === "category"
-                ? "Category"
-                : "Budget"
-        }
-        items={selectorItems}
-        selectedIds={
-          selector === "source"
-            ? currentDraft.sourceAccountId
-              ? [currentDraft.sourceAccountId]
-              : []
-            : selector === "destination"
-              ? currentDraft.destinationAccountId
-                ? [currentDraft.destinationAccountId]
-                : []
-              : selector === "category"
-                ? currentDraft.categoryId
-                  ? [currentDraft.categoryId]
+            items={selectorItems}
+            selectedIds={
+              selector === "source"
+                ? currentDraft.sourceAccountId
+                  ? [currentDraft.sourceAccountId]
                   : []
-                : currentDraft.budgetId
-                  ? [currentDraft.budgetId]
-                  : []
-        }
-        onSelect={applySelection}
-        onClose={() => setSelector(null)}
-      />
+                : selector === "destination"
+                  ? currentDraft.destinationAccountId
+                    ? [currentDraft.destinationAccountId]
+                    : []
+                  : selector === "category"
+                    ? currentDraft.categoryId
+                      ? [currentDraft.categoryId]
+                      : []
+                    : currentDraft.budgetId
+                      ? [currentDraft.budgetId]
+                      : []
+            }
+            onSelect={applySelection}
+            onClose={() => setSelector(null)}
+          />
+        </>
+      )}
     </FinanceCard>
   )
 }
@@ -912,7 +944,17 @@ const $draftHeader: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   padding: spacing.md,
 })
 
+const $draftHeaderPressed: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.78,
+})
+
 const $draftTitleRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.sm,
+})
+
+const $draftHeaderSummary: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
   gap: spacing.sm,
@@ -971,6 +1013,11 @@ const $amountRow: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   flexDirection: "row",
   justifyContent: "space-between",
   paddingVertical: spacing.lg,
+})
+
+const $amountRowCollapsed: ThemedStyle<ViewStyle> = () => ({
+  borderBottomWidth: 0,
+  paddingBottom: 0,
 })
 
 const $categoryIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
