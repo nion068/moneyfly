@@ -35,6 +35,7 @@ import {
   MoneyAgentSaveSettingsInput,
   MoneyAgentTransactionDraft,
   normalizeMoneyAgentConversation,
+  reconcileMoneyAgentDraftAccounts,
   removeSecret,
   saveSecret,
 } from "@/services/ai"
@@ -155,6 +156,7 @@ function ensureDraftConsistency(
   draft: MoneyAgentTransactionDraft,
   snapshot: MoneyAgentEntitySnapshot,
 ): MoneyAgentTransactionDraft {
+  draft = reconcileMoneyAgentDraftAccounts(draft, snapshot.accounts)
   const hasFieldValue = (field: MoneyAgentDraftField) => {
     if (field === "tagIds") return draft.tagIds.length > 0
     return !!draft[field] && String(draft[field]).trim().length > 0

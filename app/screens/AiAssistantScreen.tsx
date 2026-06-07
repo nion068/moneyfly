@@ -9,7 +9,14 @@ import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
 import { useMoneyAgent } from "@/context/MoneyAgentContext"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
-import type { MoneyAgentTransactionDraft } from "@/services/ai/types"
+import {
+  compatibleMoneyAgentAccounts,
+  formatMoneyAgentDraftAmount,
+  getMoneyAgentDraftType,
+  moneyAgentDraftTypes,
+  reconcileMoneyAgentDraftAccounts,
+} from "@/services/ai/drafts"
+import type { MoneyAgentEntity, MoneyAgentTransactionDraft } from "@/services/ai/types"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
@@ -347,7 +354,7 @@ function MoneyAgentDraftCard({
 }: {
   draftId: string
   initiallyExpanded: boolean
-  accounts: { id: string; name: string }[]
+  accounts: MoneyAgentEntity[]
   categories: { id: string; name: string }[]
   budgets: { id: string; name: string }[]
 }) {
@@ -385,6 +392,7 @@ function MoneyAgentDraftCard({
   if (!draft) return null
   const currentDraft = localDraft ?? draft
   const statusPresentation = getDraftStatusPresentation(currentDraft)
+  const typePresentation = getMoneyAgentDraftType(currentDraft.type)
   const statusColor =
     statusPresentation.tone === "pending"
       ? colors.palette.accent300
@@ -401,14 +409,18 @@ function MoneyAgentDraftCard({
 
   const selectorItems: SelectionItem[] =
     selector === "source" || selector === "destination"
-      ? accounts.map((item) => ({ id: item.id, title: item.name, icon: "wallet-outline" }))
+      ? compatibleMoneyAgentAccounts(accounts, currentDraft, selector).map((item) => ({
+          id: item.id,
+          title: item.name,
+          icon: "wallet-outline",
+        }))
       : selector === "category"
         ? categories.map((item) => ({ id: item.id, title: item.name, icon: "shape-outline" }))
         : budgets.map((item) => ({ id: item.id, title: item.name, icon: "wallet-outline" }))
 
   const applySelection = (ids: string[]) => {
     const id = ids[0] ?? ""
-    const next =
+    const selectedDraft =
       selector === "source"
         ? { ...currentDraft, sourceAccountId: id || null }
         : selector === "destination"
@@ -416,6 +428,10 @@ function MoneyAgentDraftCard({
           : selector === "category"
             ? { ...currentDraft, categoryId: id || null }
             : { ...currentDraft, budgetId: id || null }
+    const next =
+      selector === "source" || selector === "destination"
+        ? reconcileMoneyAgentDraftAccounts(selectedDraft, accounts)
+        : selectedDraft
 
     setLocalDraft(next)
     updateDraft(next)
@@ -451,10 +467,17 @@ function MoneyAgentDraftCard({
         }
       >
         <View style={themed($draftTitleRow)}>
-          <View style={themed($draftIcon)}>
-            <MaterialCommunityIcons name="creation" size={17} color={colors.palette.surfaceDim} />
+          <View style={themed([$draftIcon, $draftIconTone[typePresentation.tone]])}>
+            <MaterialCommunityIcons
+              name={typePresentation.icon}
+              size={17}
+              color={colors.palette.surfaceDim}
+            />
           </View>
-          <Text text="TRANSACTION DRAFT" style={themed($draftEyebrow)} />
+          <Text
+            text={`${typePresentation.label.toUpperCase()} DRAFT`}
+            style={themed([$draftEyebrow, $draftEyebrowTone[typePresentation.tone]])}
+          />
         </View>
         <View style={themed($draftHeaderSummary)}>
           <View
@@ -477,15 +500,27 @@ function MoneyAgentDraftCard({
       </Pressable>
 
       <View style={themed([$amountRow, !isExpanded && $amountRowCollapsed])}>
-        <View>
+        <View style={themed($amountSummary)}>
           <Text text="Amount" style={themed($fieldLabel)} />
           <Text
-            text={`${currentDraft.currencyCode} ${Number(currentDraft.amount || 0).toLocaleString()}`}
-            style={themed($draftAmount)}
+            text={formatMoneyAgentDraftAmount(currentDraft)}
+            style={themed([$draftAmount, $draftAmountTone[typePresentation.tone]])}
+          />
+          <Text
+            text={`${resolveName(accounts, currentDraft.sourceAccountId)} → ${resolveName(
+              accounts,
+              currentDraft.destinationAccountId,
+            )}`}
+            style={themed($accountFlow)}
+            testID={`draft-account-flow-${currentDraft.id}`}
           />
         </View>
-        <View style={themed($categoryIcon)}>
-          <MaterialCommunityIcons name="cash-minus" size={29} color={colors.palette.surfaceDim} />
+        <View style={themed([$categoryIcon, $categoryIconTone[typePresentation.tone]])}>
+          <MaterialCommunityIcons
+            name={typePresentation.icon}
+            size={29}
+            color={colors.palette.surfaceDim}
+          />
         </View>
       </View>
 
@@ -493,6 +528,37 @@ function MoneyAgentDraftCard({
         <>
           {editing ? (
             <View style={themed($draftEditor)}>
+              <View style={themed($typeTabs)}>
+                {moneyAgentDraftTypes.map((item) => (
+                  <Pressable
+                    key={item.value}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: currentDraft.type === item.value }}
+                    accessibilityLabel={`${item.label} transaction type`}
+                    onPress={() => {
+                      const next = reconcileMoneyAgentDraftAccounts(
+                        { ...currentDraft, type: item.value },
+                        accounts,
+                      )
+                      setLocalDraft(next)
+                      updateDraft(next)
+                      setSelector(null)
+                    }}
+                    style={themed([
+                      $typeTab,
+                      currentDraft.type === item.value && $activeTypeTabs[item.value],
+                    ])}
+                  >
+                    <Text
+                      text={item.label}
+                      style={themed([
+                        $typeText,
+                        currentDraft.type === item.value && $activeTypeText,
+                      ])}
+                    />
+                  </Pressable>
+                ))}
+              </View>
               <TextField
                 label="Amount"
                 keyboardType="numeric"
@@ -532,7 +598,12 @@ function MoneyAgentDraftCard({
               />
 
               <View style={themed($selectorGrid)}>
-                <Pressable onPress={() => setSelector("source")} style={themed($selectorButton)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select source account"
+                  onPress={() => setSelector("source")}
+                  style={themed($selectorButton)}
+                >
                   <Text text="Source" style={themed($selectorLabel)} />
                   <Text
                     text={resolveName(accounts, currentDraft.sourceAccountId)}
@@ -540,6 +611,8 @@ function MoneyAgentDraftCard({
                   />
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select destination account"
                   onPress={() => setSelector("destination")}
                   style={themed($selectorButton)}
                 >
@@ -1117,11 +1190,23 @@ const $draftIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
   width: 30,
 })
 
+const $draftIconTone: Record<"expense" | "income" | "transfer", ThemedStyle<ViewStyle>> = {
+  expense: ({ colors }) => ({ backgroundColor: colors.palette.tertiary300 }),
+  income: ({ colors }) => ({ backgroundColor: colors.palette.primary300 }),
+  transfer: ({ colors }) => ({ backgroundColor: colors.palette.secondary300 }),
+}
+
 const $draftEyebrow: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.tint,
   fontSize: 12,
   letterSpacing: 1,
 })
+
+const $draftEyebrowTone: Record<"expense" | "income" | "transfer", ThemedStyle<TextStyle>> = {
+  expense: ({ colors }) => ({ color: colors.palette.tertiary300 }),
+  income: ({ colors }) => ({ color: colors.palette.primary300 }),
+  transfer: ({ colors }) => ({ color: colors.palette.secondary300 }),
+}
 
 const $draftAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.error,
@@ -1129,6 +1214,12 @@ const $draftAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   fontSize: 34,
   lineHeight: 42,
 })
+
+const $draftAmountTone: Record<"expense" | "income" | "transfer", ThemedStyle<TextStyle>> = {
+  expense: ({ colors }) => ({ color: colors.palette.tertiary300 }),
+  income: ({ colors }) => ({ color: colors.palette.primary300 }),
+  transfer: ({ colors }) => ({ color: colors.palette.secondary300 }),
+}
 
 const $draftStatus: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
@@ -1175,6 +1266,18 @@ const $amountRowCollapsed: ThemedStyle<ViewStyle> = () => ({
   paddingBottom: 0,
 })
 
+const $amountSummary: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flex: 1,
+  gap: spacing.xxs,
+  minWidth: 0,
+})
+
+const $accountFlow: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 13,
+  lineHeight: 18,
+})
+
 const $categoryIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.tertiary500,
@@ -1184,6 +1287,12 @@ const $categoryIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
   width: 56,
 })
 
+const $categoryIconTone: Record<"expense" | "income" | "transfer", ThemedStyle<ViewStyle>> = {
+  expense: ({ colors }) => ({ backgroundColor: colors.palette.tertiary300 }),
+  income: ({ colors }) => ({ backgroundColor: colors.palette.primary300 }),
+  transfer: ({ colors }) => ({ backgroundColor: colors.palette.secondary300 }),
+}
+
 const $draftBody: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.md,
   paddingTop: spacing.md,
@@ -1191,6 +1300,37 @@ const $draftBody: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 
 const $draftEditor: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.sm,
+})
+
+const $typeTabs: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainer,
+  borderRadius: 13,
+  flexDirection: "row",
+  padding: 3,
+})
+
+const $typeTab: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  borderRadius: 10,
+  flex: 1,
+  justifyContent: "center",
+  minHeight: 44,
+})
+
+const $activeTypeTabs: Record<MoneyAgentTransactionDraft["type"], ThemedStyle<ViewStyle>> = {
+  withdrawal: ({ colors }) => ({ backgroundColor: colors.palette.tertiary300 }),
+  deposit: ({ colors }) => ({ backgroundColor: colors.palette.primary300 }),
+  transfer: ({ colors }) => ({ backgroundColor: colors.palette.secondary300 }),
+}
+
+const $typeText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.textDim,
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
+})
+
+const $activeTypeText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.surfaceDim,
 })
 
 const $draftDescription: ThemedStyle<TextStyle> = ({ colors, typography }) => ({

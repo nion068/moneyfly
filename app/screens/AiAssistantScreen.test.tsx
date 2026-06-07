@@ -2,7 +2,11 @@ import { fireEvent, render } from "@testing-library/react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 
 import { AiAssistantScreen } from "@/screens/AiAssistantScreen"
-import type { MoneyAgentChatItem, MoneyAgentTransactionDraft } from "@/services/ai/types"
+import type {
+  MoneyAgentChatItem,
+  MoneyAgentEntity,
+  MoneyAgentTransactionDraft,
+} from "@/services/ai/types"
 import { ThemeProvider } from "@/theme/context"
 
 const mockMoneyAgentValue = {
@@ -34,7 +38,7 @@ const mockMoneyAgentValue = {
   hasApiKey: true,
   isReady: true,
   snapshot: {
-    accounts: [] as { id: string; name: string }[],
+    accounts: [] as MoneyAgentEntity[],
     categories: [] as { id: string; name: string }[],
     budgets: [] as { id: string; name: string }[],
     tags: [] as { id: string; name: string }[],
@@ -182,7 +186,9 @@ describe("AiAssistantScreen", () => {
 
     expect(queryByText("Lunch at KFC")).toBeNull()
     expect(queryByText("Edit")).toBeNull()
-    expect(getByText("BDT 450")).toBeTruthy()
+    expect(getByText("-BDT 450")).toBeTruthy()
+    expect(getByText("EXPENSE DRAFT")).toBeTruthy()
+    expect(getByText("bKash → Food expense")).toBeTruthy()
 
     fireEvent.press(getByLabelText("Expand transaction draft"))
     expect(getByText("Lunch at KFC")).toBeTruthy()
@@ -303,6 +309,69 @@ describe("AiAssistantScreen", () => {
     expect(getByTestId("draft-status-confirmed")).toHaveStyle({
       backgroundColor: "rgba(62, 165, 118, 0.18)",
     })
+  })
+
+  it.each([
+    ["withdrawal", "EXPENSE DRAFT", "-BDT 450", "cash-minus", "#d87162"],
+    ["deposit", "INCOME DRAFT", "+BDT 450", "cash-plus", "#6cdca0"],
+    ["transfer", "TRANSFER DRAFT", "BDT 450", "bank-transfer", "#86cdea"],
+  ] as const)(
+    "renders %s drafts with their type presentation",
+    (type, label, amount, icon, color) => {
+      mockMoneyAgentValue.items.push({
+        id: `draft-item-${type}`,
+        kind: "draft",
+        draftId: `draft-${type}`,
+        createdAt: "2026-06-07T12:01:00.000Z",
+      })
+      mockMoneyAgentValue.drafts.push({ ...createDraft(`draft-${type}`), type })
+      mockMoneyAgentValue.snapshot.accounts = [
+        { id: "account-1", name: "Main account", type: "asset" },
+        { id: "expense-1", name: "Other account", type: "expense" },
+      ]
+
+      const screen = renderScreen()
+
+      expect(screen.UNSAFE_getAllByProps({ name: icon }).length).toBeGreaterThanOrEqual(2)
+      expect(screen.getByText(amount)).toHaveStyle({ color })
+      expect(screen.getByText("Main account → Other account")).toBeTruthy()
+    },
+  )
+
+  it("changes draft type, preserves compatible fields, and filters account selectors", () => {
+    const draft = createDraft("editable")
+    mockMoneyAgentValue.items.push({
+      id: "editable-item",
+      kind: "draft",
+      draftId: draft.id,
+      createdAt: "2026-06-07T12:01:00.000Z",
+    })
+    mockMoneyAgentValue.drafts.push(draft)
+    mockMoneyAgentValue.snapshot.accounts = [
+      { id: "account-1", name: "Checking", type: "asset" },
+      { id: "account-2", name: "Savings", type: "asset" },
+      { id: "expense-1", name: "Groceries", type: "expense" },
+      { id: "revenue-1", name: "Salary", type: "revenue" },
+    ]
+
+    const screen = renderScreen()
+    fireEvent.press(screen.getByText("Edit"))
+    fireEvent.press(screen.getByLabelText("Transfer transaction type"))
+
+    expect(screen.getByText("TRANSFER DRAFT")).toBeTruthy()
+    expect(screen.getByText("Checking → Not selected")).toBeTruthy()
+    expect(mockMoneyAgentValue.updateDraft).toHaveBeenLastCalledWith({
+      ...draft,
+      type: "transfer",
+      destinationAccountId: null,
+      missingFields: ["destinationAccountId"],
+    })
+
+    fireEvent.press(screen.getByLabelText("Select destination account"))
+    expect(screen.getByRole("radio", { name: "Savings" })).toBeTruthy()
+    expect(screen.queryByRole("radio", { name: "Checking" })).toBeNull()
+    expect(screen.queryByRole("radio", { name: "Groceries" })).toBeNull()
+    expect(screen.queryByRole("radio", { name: "Salary" })).toBeNull()
   })
 
   it("starts persisted resolved drafts collapsed and allows expanding them", () => {
