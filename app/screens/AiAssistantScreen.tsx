@@ -36,7 +36,7 @@ function getDraftStatusPresentation(draft: MoneyAgentTransactionDraft): {
   if (draft.missingFields.length > 0) {
     return { label: "Needs details", icon: "alert-circle-outline", tone: "pending" }
   }
-  return { label: "Pending confirmation", icon: "clock-outline", tone: "pending" }
+  return { label: "Draft", icon: "clock-outline", tone: "pending" }
 }
 
 function isResolvedDraft(draft: MoneyAgentTransactionDraft) {

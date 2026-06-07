@@ -57,6 +57,8 @@ jest.mock("react-native-keyboard-controller", () => {
   const { View } = require("react-native")
   return {
     KeyboardAwareScrollView: View,
+    useKeyboardState: (selector: (state: { isVisible: boolean; height: number }) => number) =>
+      selector({ isVisible: false, height: 0 }),
   }
 })
 
@@ -283,7 +285,7 @@ describe("AiAssistantScreen", () => {
     const { getByLabelText, getByTestId } = renderScreen()
 
     const expectedIcons = {
-      "Pending confirmation": "clock-outline",
+      "Draft": "clock-outline",
       "Needs details": "alert-circle-outline",
       "Confirming": "loading",
       "Confirmed": "check-circle",
