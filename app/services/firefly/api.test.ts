@@ -127,4 +127,19 @@ describe("FireflyApi", () => {
     })
     expect(put).toHaveBeenCalledWith("api/v1/transactions/group-1", request)
   })
+
+  it("deletes a transaction group through Firefly", async () => {
+    const deleteRequest = jest.fn().mockResolvedValue({ ok: true, status: 204 })
+    ;(create as jest.Mock).mockReturnValue({
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: deleteRequest,
+    })
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").deleteTransaction("group-1"),
+    ).resolves.toEqual({ kind: "ok", data: true })
+    expect(deleteRequest).toHaveBeenCalledWith("api/v1/transactions/group-1")
+  })
 })

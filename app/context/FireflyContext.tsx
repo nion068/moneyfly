@@ -60,6 +60,7 @@ type FireflyContextType = {
   transactionCreation: LoadState<FireflyTransaction | null>
   transactionDetail: LoadState<FireflyTransaction | null>
   transactionUpdate: LoadState<FireflyTransaction | null>
+  transactionDeletion: LoadState<null>
   setConnection: (baseUrl: string, token: string) => Promise<boolean>
   disconnect: () => void
   toggleHideAmounts: () => void
@@ -74,6 +75,8 @@ type FireflyContextType = {
   resetTransactionDetail: () => void
   updateTransaction: (id: string, request: UpdateTransactionRequest) => Promise<boolean>
   resetTransactionUpdate: () => void
+  deleteTransaction: (id: string) => Promise<boolean>
+  resetTransactionDeletion: () => void
 }
 
 const emptyState = <T,>(data: T): LoadState<T> => ({ data, status: "idle" })
@@ -106,6 +109,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   const [transactionUpdate, setTransactionUpdate] = useState(() =>
     emptyState<FireflyTransaction | null>(null),
   )
+  const [transactionDeletion, setTransactionDeletion] = useState(() => emptyState<null>(null))
   const requestId = useRef(0)
 
   const hideAmounts = storedHideAmounts === "true"
@@ -230,6 +234,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setTransactionCreation(emptyState(null))
     setTransactionDetail(emptyState(null))
     setTransactionUpdate(emptyState(null))
+    setTransactionDeletion(emptyState(null))
   }, [setStoredBaseUrl, setStoredToken])
 
   const createTransaction = useCallback(
@@ -278,6 +283,29 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     [baseUrl, isConfigured, token],
   )
   const resetTransactionUpdate = useCallback(() => setTransactionUpdate(emptyState(null)), [])
+  const deleteTransaction = useCallback(
+    async (id: string) => {
+      if (!isConfigured) return false
+      setTransactionDeletion({ data: null, status: "loading" })
+      const result = await new FireflyApi(baseUrl, token).deleteTransaction(id)
+      if (result.kind !== "ok") {
+        setTransactionDeletion({ data: null, status: "error", error: result })
+        return false
+      }
+
+      setTransactionDeletion({ data: null, status: "ready" })
+      setTransactions((state) => ({
+        ...state,
+        data: state.data.filter((transaction) => transaction.groupId !== id),
+      }))
+      setTransactionDetail(emptyState(null))
+      setTransactionUpdate(emptyState(null))
+      void load(true)
+      return true
+    },
+    [baseUrl, isConfigured, load, token],
+  )
+  const resetTransactionDeletion = useCallback(() => setTransactionDeletion(emptyState(null)), [])
 
   const changeSelectedMonth = useCallback(
     (month: Date) => {
@@ -316,6 +344,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       transactionCreation,
       transactionDetail,
       transactionUpdate,
+      transactionDeletion,
       setConnection,
       disconnect,
       toggleHideAmounts: () => setStoredHideAmounts(hideAmounts ? "false" : "true"),
@@ -330,6 +359,8 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       resetTransactionDetail,
       updateTransaction,
       resetTransactionUpdate,
+      deleteTransaction,
+      resetTransactionDeletion,
     }),
     [
       accounts,
@@ -339,6 +370,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       changeSelectedMonth,
       connectionError,
       createTransaction,
+      deleteTransaction,
       disconnect,
       hideAmounts,
       isConfigured,
@@ -350,6 +382,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       load,
       resetTransactionDetail,
       resetTransactionCreation,
+      resetTransactionDeletion,
       resetTransactionUpdate,
       selectedCurrency,
       selectedMonth,
@@ -359,6 +392,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       tags,
       token,
       transactionCreation,
+      transactionDeletion,
       transactionDetail,
       transactionUpdate,
       transactions,

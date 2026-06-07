@@ -122,6 +122,14 @@ export class FireflyApi {
     return { kind: "ok", data: response.data.data }
   }
 
+  async deleteTransaction(id: string): Promise<FireflyResult<true>> {
+    const response = await this.apisauce.delete(`api/v1/transactions/${id}`)
+
+    if (!response.ok) return toProblem(response)
+
+    return { kind: "ok", data: true }
+  }
+
   private async getCollection<T>(
     path: string,
     params?: Record<string, string | number | undefined>,

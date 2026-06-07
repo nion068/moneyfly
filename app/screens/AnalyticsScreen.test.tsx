@@ -100,6 +100,7 @@ const mockBaseContextValue = {
   transactionCreation: { data: null, status: "idle" as const },
   transactionDetail: { data: null, status: "idle" as const },
   transactionUpdate: { data: null, status: "idle" as const },
+  transactionDeletion: { data: null, status: "idle" as const },
   setConnection: jest.fn(),
   disconnect: jest.fn(),
   toggleHideAmounts: jest.fn(),
@@ -111,6 +112,8 @@ const mockBaseContextValue = {
   resetTransactionDetail: jest.fn(),
   updateTransaction: jest.fn(),
   resetTransactionUpdate: jest.fn(),
+  deleteTransaction: jest.fn(),
+  resetTransactionDeletion: jest.fn(),
 }
 
 jest.mock("@/context/FireflyContext", () => ({

@@ -1,5 +1,5 @@
-import { FC } from "react"
-import { Pressable, TextStyle, View, ViewStyle } from "react-native"
+import { FC, useEffect, useState } from "react"
+import { Modal, Pressable, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 
 import { Button } from "@/components/Button"
@@ -20,10 +20,35 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
   route,
 }) => {
   const { themed } = useAppTheme()
-  const { transactions } = useFirefly()
+  const { deleteTransaction, resetTransactionDeletion, transactionDeletion, transactions } =
+    useFirefly()
   const { transaction } = route.params
   const isSplit =
     transactions.data.filter((item) => item.groupId === transaction.groupId).length > 1
+  const isDeleting = transactionDeletion.status === "loading"
+  const [isDeleteDialogVisible, setIsDeleteDialogVisible] = useState(false)
+
+  useEffect(() => {
+    resetTransactionDeletion()
+    return resetTransactionDeletion
+  }, [resetTransactionDeletion])
+
+  const confirmDelete = async () => {
+    const deleted = await deleteTransaction(transaction.groupId)
+    if (deleted) {
+      setIsDeleteDialogVisible(false)
+      navigation.goBack()
+    }
+  }
+
+  const requestDelete = () => {
+    resetTransactionDeletion()
+    setIsDeleteDialogVisible(true)
+  }
+
+  const closeDeleteDialog = () => {
+    if (!isDeleting) setIsDeleteDialogVisible(false)
+  }
 
   return (
     <Screen
@@ -31,19 +56,33 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
       safeAreaEdges={["top", "bottom"]}
       contentContainerStyle={themed($container)}
       footer={
-        !isSplit ? (
+        <View style={themed($footerActions)}>
+          {!isSplit && (
+            <Button
+              text="Edit Transaction"
+              disabled={isDeleting}
+              onPress={() =>
+                navigation.navigate("EditTransaction", {
+                  groupId: transaction.groupId,
+                  journalId: transaction.journalId,
+                })
+              }
+              style={themed($editButton)}
+              textStyle={themed($editButtonText)}
+            />
+          )}
           <Button
-            text="Edit Transaction"
-            onPress={() =>
-              navigation.navigate("EditTransaction", {
-                groupId: transaction.groupId,
-                journalId: transaction.journalId,
-              })
+            text={
+              isDeleting ? "Deleting..." : isSplit ? "Delete Split Group" : "Delete Transaction"
             }
-            style={themed($editButton)}
-            textStyle={themed($editButtonText)}
+            accessibilityLabel={isSplit ? "Delete split transaction group" : "Delete transaction"}
+            disabled={isDeleting}
+            onPress={requestDelete}
+            style={themed($deleteButton)}
+            textStyle={themed($deleteButtonText)}
+            disabledStyle={themed($disabledButton)}
           />
-        ) : undefined
+        </View>
       }
       footerStyle={themed($footer)}
     >
@@ -95,6 +134,66 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
           />
         </View>
       )}
+
+      <Modal
+        visible={isDeleteDialogVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeDeleteDialog}
+      >
+        <View style={themed($dialogOverlay)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close delete confirmation"
+            disabled={isDeleting}
+            onPress={closeDeleteDialog}
+            style={themed($dialogBackdrop)}
+          />
+          <View accessibilityRole="alert" accessibilityViewIsModal style={themed($dialog)}>
+            <View style={themed($dialogIcon)}>
+              <MaterialCommunityIcons name="delete-outline" size={28} style={themed($deleteIcon)} />
+            </View>
+            <Text
+              text={isSplit ? "Delete split transaction group?" : "Delete transaction?"}
+              style={themed($dialogTitle)}
+            />
+            <Text
+              text={
+                isSplit
+                  ? "This permanently deletes every transaction in this split group. This action cannot be undone."
+                  : `This permanently deletes "${transaction.description}". This action cannot be undone.`
+              }
+              style={themed($dialogMessage)}
+            />
+            {transactionDeletion.status === "error" && (
+              <Text
+                text={transactionDeletion.error?.message ?? "Could not delete this transaction."}
+                style={themed($deleteError)}
+              />
+            )}
+            <View style={themed($dialogActions)}>
+              <Button
+                text="Cancel"
+                disabled={isDeleting}
+                onPress={closeDeleteDialog}
+                style={themed($cancelButton)}
+                textStyle={themed($cancelButtonText)}
+                disabledStyle={themed($disabledButton)}
+              />
+              <Button
+                text={isDeleting ? "Deleting..." : "Delete"}
+                accessibilityLabel="Confirm delete transaction"
+                disabled={isDeleting}
+                onPress={() => void confirmDelete()}
+                style={themed($confirmDeleteButton)}
+                textStyle={themed($confirmDeleteButtonText)}
+                disabledStyle={themed($disabledButton)}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   )
 }
@@ -140,6 +239,10 @@ const $footer: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.background,
   paddingHorizontal: spacing.md,
   paddingTop: spacing.sm,
+})
+
+const $footerActions: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.sm,
 })
 
 const $header: ThemedStyle<ViewStyle> = () => ({
@@ -244,6 +347,117 @@ const $editButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
 })
 
 const $editButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.bold,
+})
+
+const $deleteButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: "rgba(216, 113, 98, 0.12)",
+  borderColor: colors.palette.tertiary300,
+  borderRadius: 14,
+  minHeight: 50,
+})
+
+const $deleteButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.tertiary300,
+  fontFamily: typography.primary.bold,
+})
+
+const $disabledButton: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.55,
+})
+
+const $deleteError: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.error,
+  fontSize: 13,
+  textAlign: "center",
+})
+
+const $dialogOverlay: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.overlay50,
+  flex: 1,
+  justifyContent: "center",
+  padding: spacing.lg,
+})
+
+const $dialogBackdrop: ThemedStyle<ViewStyle> = () => ({
+  bottom: 0,
+  left: 0,
+  position: "absolute",
+  right: 0,
+  top: 0,
+})
+
+const $dialog: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
+  borderRadius: 24,
+  borderWidth: 1,
+  gap: spacing.sm,
+  maxWidth: 420,
+  padding: spacing.lg,
+  width: "100%",
+})
+
+const $dialogIcon: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  backgroundColor: "rgba(216, 113, 98, 0.14)",
+  borderRadius: 28,
+  height: 56,
+  justifyContent: "center",
+  marginBottom: 4,
+  width: 56,
+})
+
+const $deleteIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary300,
+})
+
+const $dialogTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.bold,
+  fontSize: 20,
+  textAlign: "center",
+})
+
+const $dialogMessage: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 14,
+  lineHeight: 20,
+  textAlign: "center",
+})
+
+const $dialogActions: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  gap: spacing.sm,
+  marginTop: spacing.xs,
+  width: "100%",
+})
+
+const $cancelButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHigh,
+  borderColor: colors.palette.stroke,
+  borderRadius: 14,
+  flex: 1,
+  minHeight: 48,
+})
+
+const $cancelButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+})
+
+const $confirmDeleteButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.tertiary300,
+  borderColor: colors.palette.tertiary300,
+  borderRadius: 14,
+  flex: 1,
+  minHeight: 48,
+})
+
+const $confirmDeleteButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.surfaceDim,
   fontFamily: typography.primary.bold,
 })

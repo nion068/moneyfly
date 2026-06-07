@@ -7,6 +7,7 @@ const mockGetTransactions = jest.fn()
 const mockGetCategories = jest.fn()
 const mockGetBudgets = jest.fn()
 const mockGetTags = jest.fn()
+const mockDeleteTransaction = jest.fn()
 
 jest.mock("react-native-mmkv", () => ({
   useMMKVString: (key: string) => {
@@ -25,6 +26,7 @@ jest.mock("@/services/firefly/api", () => ({
     getCategories: mockGetCategories,
     getBudgets: mockGetBudgets,
     getTags: mockGetTags,
+    deleteTransaction: mockDeleteTransaction,
   })),
   normalizeBaseUrl: (value: string) => value,
 }))
@@ -56,6 +58,7 @@ describe("FireflyProvider month loading", () => {
     mockGetCategories.mockResolvedValue(ok)
     mockGetBudgets.mockResolvedValue(ok)
     mockGetTags.mockResolvedValue(ok)
+    mockDeleteTransaction.mockResolvedValue({ kind: "ok", data: true })
   })
 
   it("sets month loading immediately and clears it after the month request", async () => {
@@ -118,5 +121,59 @@ describe("FireflyProvider month loading", () => {
 
     await waitFor(() => expect(latestContext.isMonthLoading).toBe(false))
     expect(latestContext.transactions.status).toBe("error")
+  })
+
+  it("removes every split in a deleted transaction group", async () => {
+    mockGetTransactions.mockResolvedValueOnce({
+      kind: "ok",
+      data: [
+        {
+          id: "group-1",
+          attributes: {
+            transactions: [
+              {
+                transaction_journal_id: "journal-1",
+                date: "2026-06-06T12:00:00",
+                amount: "10.00",
+                description: "Lunch",
+                type: "withdrawal",
+                source_name: "Checking",
+                destination_name: "Food",
+                currency_code: "USD",
+                currency_symbol: "$",
+              },
+              {
+                transaction_journal_id: "journal-2",
+                date: "2026-06-06T12:00:00",
+                amount: "5.00",
+                description: "Coffee",
+                type: "withdrawal",
+                source_name: "Checking",
+                destination_name: "Food",
+                currency_code: "USD",
+                currency_symbol: "$",
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+    render(
+      <FireflyProvider>
+        <ContextProbe />
+      </FireflyProvider>,
+    )
+    await waitFor(() => expect(latestContext.transactions.data).toHaveLength(2))
+
+    let deleted = false
+    await act(async () => {
+      deleted = await latestContext.deleteTransaction("group-1")
+    })
+
+    expect(deleted).toBe(true)
+    expect(mockDeleteTransaction).toHaveBeenCalledWith("group-1")
+    expect(latestContext.transactions.data).toEqual([])
+    expect(latestContext.transactionDeletion.status).toBe("ready")
   })
 })
