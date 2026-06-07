@@ -22,6 +22,14 @@ export function normalizeMoneyAgentConversation(
 ): MoneyAgentConversationState {
   return {
     ...conversation,
+    drafts: conversation.drafts.map((draft) => ({
+      ...draft,
+      tagIds: [...(draft.tagIds ?? [])],
+      newTags: [...(draft.newTags ?? [])],
+      missingFields: (draft.missingFields as string[]).filter(
+        (field) => field !== "tagIds",
+      ) as MoneyAgentTransactionDraft["missingFields"],
+    })),
     items: conversation.items.map((item) =>
       item.kind === "draft"
         ? {
@@ -47,6 +55,7 @@ export function createDraftGroup(
     ...draft,
     id: generateId(),
     tagIds: [...draft.tagIds],
+    newTags: [...draft.newTags],
     missingFields: [...draft.missingFields],
   }))
   const groupId = generateId()

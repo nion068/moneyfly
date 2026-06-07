@@ -40,6 +40,7 @@ import {
   saveSecret,
 } from "@/services/ai"
 import { load, save } from "@/utils/storage"
+import { mergeTagNames } from "@/utils/tags"
 
 const CONVERSATION_KEY = "MoneyAgent.conversation"
 const SNAPSHOT_KEY = "MoneyAgent.snapshot"
@@ -158,7 +159,6 @@ function ensureDraftConsistency(
 ): MoneyAgentTransactionDraft {
   draft = reconcileMoneyAgentDraftAccounts(draft, snapshot.accounts)
   const hasFieldValue = (field: MoneyAgentDraftField) => {
-    if (field === "tagIds") return draft.tagIds.length > 0
     return !!draft[field] && String(draft[field]).trim().length > 0
   }
   const missingFields = new Set<MoneyAgentDraftField>(
@@ -192,15 +192,22 @@ function ensureDraftConsistency(
     !draft.categoryId || snapshot.categories.some((category) => category.id === draft.categoryId)
   const budgetExists =
     !draft.budgetId || snapshot.budgets.some((budget) => budget.id === draft.budgetId)
-  const tagsExist =
-    draft.tagIds.length === 0 ||
-    draft.tagIds.every((tagId) => snapshot.tags.some((tag) => tag.id === tagId))
-
   if (!sourceExists) missingFields.add("sourceAccountId")
   if (!destinationExists) missingFields.add("destinationAccountId")
   if (!categoryExists) missingFields.add("categoryId")
   if (!budgetExists) missingFields.add("budgetId")
-  if (!tagsExist) missingFields.add("tagIds")
+
+  const tagIds = new Set(
+    draft.tagIds.filter((tagId) => snapshot.tags.some((tag) => tag.id === tagId)),
+  )
+  const newTags = mergeTagNames(draft.newTags ?? []).filter((tagName) => {
+    const existing = snapshot.tags.find(
+      (tag) => tag.name.trim().toLocaleLowerCase() === tagName.toLocaleLowerCase(),
+    )
+    if (!existing) return true
+    tagIds.add(existing.id)
+    return false
+  })
 
   return {
     ...cloneDraft(draft),
@@ -208,7 +215,8 @@ function ensureDraftConsistency(
     destinationAccountId: destinationExists ? draft.destinationAccountId : null,
     categoryId: categoryExists ? draft.categoryId : null,
     budgetId: budgetExists ? draft.budgetId : null,
-    tagIds: tagsExist ? [...draft.tagIds] : [],
+    tagIds: Array.from(tagIds),
+    newTags,
     missingFields: Array.from(missingFields),
     status: draft.status,
   }
@@ -237,12 +245,15 @@ function buildStoreRequest(
         destination_id: draft.destinationAccountId ?? undefined,
         category_id: draft.categoryId ?? undefined,
         budget_id: draft.budgetId ?? undefined,
-        tags:
-          draft.tagIds.length > 0
-            ? draft.tagIds.map(
-                (tagId) => snapshot.tags.find((tag) => tag.id === tagId)?.name ?? tagId,
-              )
-            : undefined,
+        tags: (() => {
+          const names = mergeTagNames(
+            draft.tagIds
+              .map((tagId) => snapshot.tags.find((tag) => tag.id === tagId)?.name ?? "")
+              .filter(Boolean),
+            draft.newTags,
+          )
+          return names.length > 0 ? names : undefined
+        })(),
         notes: draft.notes?.trim() || undefined,
       },
     ],

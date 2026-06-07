@@ -67,7 +67,6 @@ export type MoneyAgentDraftField =
   | "destinationAccountId"
   | "categoryId"
   | "budgetId"
-  | "tagIds"
 
 export type MoneyAgentTransactionDraft = {
   id: string
@@ -81,6 +80,7 @@ export type MoneyAgentTransactionDraft = {
   categoryId: string | null
   budgetId: string | null
   tagIds: string[]
+  newTags: string[]
   notes: string | null
   missingFields: MoneyAgentDraftField[]
   status: "proposed" | "confirming" | "confirmed" | "discarded" | "failed"

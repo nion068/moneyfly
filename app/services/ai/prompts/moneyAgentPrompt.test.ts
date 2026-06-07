@@ -47,8 +47,28 @@ describe("buildMoneyAgentPrompt", () => {
     const schema = getMoneyAgentResponseSchema()
 
     expect(schema.properties.kind.enum).toEqual(["clarification", "drafts"])
+    expect(schema.properties.drafts.items.properties.newTags).toMatchObject({ type: "array" })
     expect(schema.properties.clarificationQuestion.description).toContain(
       "ask for a concrete transaction",
     )
+  })
+
+  it("allows inferred new tags without making tags required transaction details", () => {
+    const prompt = buildMoneyAgentPrompt({
+      currentDate: "2026-06-08",
+      timeZone: "Asia/Dhaka",
+      snapshot: {
+        accounts: [],
+        categories: [],
+        budgets: [],
+        tags: [],
+        currencies: [],
+      },
+      messages: [],
+    })
+
+    expect(prompt).toContain("You may infer them from context")
+    expect(prompt).toContain("Tags are optional")
+    expect(prompt).toContain("Never include tagIds in missingFields")
   })
 })

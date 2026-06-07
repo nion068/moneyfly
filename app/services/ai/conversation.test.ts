@@ -18,6 +18,7 @@ const draft: MoneyAgentTransactionDraft = {
   categoryId: null,
   budgetId: null,
   tagIds: [],
+  newTags: [],
   notes: null,
   missingFields: [],
   status: "proposed",
@@ -74,6 +75,22 @@ describe("money agent conversation groups", () => {
       createdAt: "2026-06-07T12:00:00.000Z",
     })
     expect(normalized.drafts[0]).toMatchObject({ id: "draft-1", status: "confirmed" })
+  })
+
+  it("defaults legacy draft tags and removes the obsolete optional missing field", () => {
+    const legacyDraft = {
+      ...draft,
+      newTags: undefined,
+      missingFields: ["tagIds"],
+    } as unknown as MoneyAgentTransactionDraft
+
+    const normalized = normalizeMoneyAgentConversation(
+      { items: [], drafts: [legacyDraft] },
+      idGenerator(),
+    )
+
+    expect(normalized.drafts[0].newTags).toEqual([])
+    expect(normalized.drafts[0].missingFields).toEqual([])
   })
 
   it("keeps only complete draft groups when chat history is cleared", () => {

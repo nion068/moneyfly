@@ -51,7 +51,6 @@ function isDraftField(value: unknown): value is MoneyAgentTransactionDraft {
     "destinationAccountId",
     "categoryId",
     "budgetId",
-    "tagIds",
   ]
   return (
     typeof draft.id === "string" &&
@@ -66,6 +65,8 @@ function isDraftField(value: unknown): value is MoneyAgentTransactionDraft {
     nullableString(draft.budgetId) &&
     Array.isArray(draft.tagIds) &&
     draft.tagIds.every((tagId) => typeof tagId === "string") &&
+    Array.isArray(draft.newTags) &&
+    draft.newTags.every((tag) => typeof tag === "string") &&
     nullableString(draft.notes) &&
     Array.isArray(draft.missingFields) &&
     draft.missingFields.every((field) => validMissingFields.includes(field)) &&

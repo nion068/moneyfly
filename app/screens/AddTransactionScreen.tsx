@@ -23,9 +23,10 @@ import {
 } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { mergeTagNames } from "@/utils/tags"
 
 type AddTransactionScreenProps = AppStackScreenProps<"AddTransaction" | "EditTransaction">
-type SelectorKind = "source" | "destination" | "category"
+type SelectorKind = "source" | "destination" | "category" | "tags"
 
 const transactionTypes: { label: string; value: TransactionType }[] = [
   { label: "Expense", value: "withdrawal" },
@@ -43,6 +44,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
   const {
     accounts,
     categories,
+    tags: fireflyTags,
     createTransaction,
     transactionCreation,
     resetTransactionCreation,
@@ -62,7 +64,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
   const [sourceId, setSourceId] = useState("")
   const [destinationId, setDestinationId] = useState("")
   const [categoryName, setCategoryName] = useState("")
-  const [tags, setTags] = useState("")
+  const [tags, setTags] = useState<string[]>([])
   const [notes, setNotes] = useState("")
   const [selector, setSelector] = useState<SelectorKind>()
   const [datePickerMode, setDatePickerMode] = useState<"date" | "time">()
@@ -128,7 +130,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
     setSourceId(split.source_id ?? "")
     setDestinationId(split.destination_id ?? "")
     setCategoryName(split.category_name ?? "")
-    setTags(split.tags?.join(", ") ?? "")
+    setTags(mergeTagNames(split.tags ?? []))
     setNotes(split.notes ?? "")
   }, [editParams, isEditing, transactionDetail.data])
 
@@ -159,11 +161,33 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
       ? accountItems(sourceAccounts)
       : selector === "destination"
         ? accountItems(destinationAccounts)
-        : categories.data.map((category) => ({
-            id: category.id,
-            title: category.attributes.name,
-            icon: "shape-outline" as const,
-          }))
+        : selector === "category"
+          ? categories.data.map((category) => ({
+              id: category.id,
+              title: category.attributes.name,
+              icon: "shape-outline" as const,
+            }))
+          : [
+              ...fireflyTags.data.map((tag) => ({
+                id: tag.attributes.tag,
+                title: tag.attributes.tag,
+                icon: "tag-outline" as const,
+              })),
+              ...tags
+                .filter(
+                  (selectedTag) =>
+                    !fireflyTags.data.some(
+                      (tag) =>
+                        tag.attributes.tag.toLocaleLowerCase() === selectedTag.toLocaleLowerCase(),
+                    ),
+                )
+                .map((tag) => ({
+                  id: tag,
+                  title: tag,
+                  subtitle: "New tag",
+                  icon: "tag-plus-outline" as const,
+                })),
+            ]
 
   const onDateChange = (value: Date) => {
     const now = new Date()
@@ -209,10 +233,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
       sourceAccountId: sourceId,
       destinationAccountId: destinationId,
       categoryName,
-      tags: tags
-        .split(",")
-        .map((tag) => tag.trim().replace(/^#/, ""))
-        .filter(Boolean),
+      tags,
       notes,
     }
     const journalId = journalIdForEdit()
@@ -272,27 +293,29 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
         safeAreaEdges={["top", "bottom"]}
         contentContainerStyle={themed($container)}
         footer={
-          <Button
-            text={
-              isSubmitting
-                ? isEditing
-                  ? "Updating..."
-                  : "Saving..."
-                : isEditing
-                  ? "Update Transaction"
-                  : "Save Transaction"
-            }
-            LeftAccessory={
-              isSubmitting
-                ? () => <ActivityIndicator color={colors.palette.surfaceDim} size="small" />
-                : undefined
-            }
-            disabled={isSubmitting || isLoadingEdit || !!editLoadError}
-            onPress={() => void submit()}
-            style={themed($saveButton)}
-            textStyle={themed($saveText)}
-            disabledStyle={themed($disabledButton)}
-          />
+          selector ? undefined : (
+            <Button
+              text={
+                isSubmitting
+                  ? isEditing
+                    ? "Updating..."
+                    : "Saving..."
+                  : isEditing
+                    ? "Update Transaction"
+                    : "Save Transaction"
+              }
+              LeftAccessory={
+                isSubmitting
+                  ? () => <ActivityIndicator color={colors.palette.surfaceDim} size="small" />
+                  : undefined
+              }
+              disabled={isSubmitting || isLoadingEdit || !!editLoadError}
+              onPress={() => void submit()}
+              style={themed($saveButton)}
+              textStyle={themed($saveText)}
+              disabledStyle={themed($disabledButton)}
+            />
+          )
         }
         footerStyle={themed($footer)}
       >
@@ -407,12 +430,11 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
               placeholder="Optional category"
               onPress={() => setSelector("category")}
             />
-            <TextField
+            <SelectorField
               label="Tags"
-              value={tags}
-              onChangeText={setTags}
-              placeholder="essential, monthly"
-              autoCapitalize="none"
+              value={tags.join(", ")}
+              placeholder="Optional tags"
+              onPress={() => setSelector("tags")}
             />
             <TextField
               label="Notes (Optional)"
@@ -445,7 +467,9 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
             ? "Source Account"
             : selector === "destination"
               ? "Destination Account"
-              : "Category"
+              : selector === "category"
+                ? "Category"
+                : "Tags"
         }
         items={selectorItems}
         selectedIds={
@@ -457,18 +481,24 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
               ? destinationId
                 ? [destinationId]
                 : []
-              : categories.data
-                  .filter((category) => category.attributes.name === categoryName)
-                  .map((category) => category.id)
+              : selector === "category"
+                ? categories.data
+                    .filter((category) => category.attributes.name === categoryName)
+                    .map((category) => category.id)
+                : tags
         }
-        onSelect={([id]) => {
+        multiple={selector === "tags"}
+        creatable={selector === "tags"}
+        onCreate={(tag) => setTags((current) => mergeTagNames(current, [tag]))}
+        onSelect={(ids) => {
+          const id = ids[0] ?? ""
           if (selector === "source") setSourceId(id)
           else if (selector === "destination") setDestinationId(id)
-          else {
+          else if (selector === "category") {
             setCategoryName(
               categories.data.find((category) => category.id === id)?.attributes.name ?? "",
             )
-          }
+          } else setTags(mergeTagNames(ids))
         }}
         onClose={() => setSelector(undefined)}
       />

@@ -25,6 +25,7 @@ const draft: MoneyAgentTransactionDraft = {
   categoryId: "category-1",
   budgetId: "budget-1",
   tagIds: ["tag-1"],
+  newTags: [],
   notes: "Keep this",
   missingFields: [],
   status: "proposed",

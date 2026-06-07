@@ -19,9 +19,13 @@ import {
 import type { MoneyAgentEntity, MoneyAgentTransactionDraft } from "@/services/ai/types"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { mergeTagNames } from "@/utils/tags"
 
 type AiAssistantScreenProps = MainTabScreenProps<"AiAssistant">
 type DraftStatusTone = "pending" | "confirming" | "confirmed" | "discarded" | "failed"
+const customTagId = (tag: string) => `custom-tag:${encodeURIComponent(tag)}`
+const customTagName = (id: string) =>
+  id.startsWith("custom-tag:") ? decodeURIComponent(id.slice("custom-tag:".length)) : null
 
 function getDraftStatusPresentation(draft: MoneyAgentTransactionDraft): {
   label: string
@@ -214,6 +218,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 accounts={snapshot.accounts}
                 categories={snapshot.categories}
                 budgets={snapshot.budgets}
+                tags={snapshot.tags}
               />
             ) : (
               <MoneyAgentDraftCard
@@ -223,6 +228,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 accounts={snapshot.accounts}
                 categories={snapshot.categories}
                 budgets={snapshot.budgets}
+                tags={snapshot.tags}
               />
             ),
           )}
@@ -276,11 +282,13 @@ function MoneyAgentDraftGroup({
   accounts,
   categories,
   budgets,
+  tags,
 }: {
   draftIds: string[]
   accounts: { id: string; name: string }[]
   categories: { id: string; name: string }[]
   budgets: { id: string; name: string }[]
+  tags: { id: string; name: string }[]
 }) {
   const { themed } = useAppTheme()
   const { drafts } = useMoneyAgent()
@@ -302,6 +310,7 @@ function MoneyAgentDraftGroup({
           accounts={accounts}
           categories={categories}
           budgets={budgets}
+          tags={tags}
         />
       ))}
     </View>
@@ -351,12 +360,14 @@ function MoneyAgentDraftCard({
   accounts,
   categories,
   budgets,
+  tags,
 }: {
   draftId: string
   initiallyExpanded: boolean
   accounts: MoneyAgentEntity[]
   categories: { id: string; name: string }[]
   budgets: { id: string; name: string }[]
+  tags: { id: string; name: string }[]
 }) {
   const {
     themed,
@@ -368,9 +379,9 @@ function MoneyAgentDraftCard({
     initiallyExpanded && !!draft && !isResolvedDraft(draft),
   )
   const [editing, setEditing] = useState(false)
-  const [selector, setSelector] = useState<"source" | "destination" | "category" | "budget" | null>(
-    null,
-  )
+  const [selector, setSelector] = useState<
+    "source" | "destination" | "category" | "budget" | "tags" | null
+  >(null)
   const [localDraft, setLocalDraft] = useState<typeof draft>(undefined)
   const previousStatus = useRef(draft?.status)
 
@@ -416,9 +427,33 @@ function MoneyAgentDraftCard({
         }))
       : selector === "category"
         ? categories.map((item) => ({ id: item.id, title: item.name, icon: "shape-outline" }))
-        : budgets.map((item) => ({ id: item.id, title: item.name, icon: "wallet-outline" }))
+        : selector === "budget"
+          ? budgets.map((item) => ({ id: item.id, title: item.name, icon: "wallet-outline" }))
+          : [
+              ...tags.map((item) => ({
+                id: item.id,
+                title: item.name,
+                icon: "tag-outline" as const,
+              })),
+              ...currentDraft.newTags.map((tag) => ({
+                id: customTagId(tag),
+                title: tag,
+                subtitle: "New tag",
+                icon: "tag-plus-outline" as const,
+              })),
+            ]
 
   const applySelection = (ids: string[]) => {
+    if (selector === "tags") {
+      const next = {
+        ...currentDraft,
+        tagIds: ids.filter((id) => !customTagName(id)),
+        newTags: mergeTagNames(ids.map((id) => customTagName(id) ?? "").filter(Boolean)),
+      }
+      setLocalDraft(next)
+      updateDraft(next)
+      return
+    }
     const id = ids[0] ?? ""
     const selectedDraft =
       selector === "source"
@@ -637,6 +672,20 @@ function MoneyAgentDraftCard({
                   />
                 </Pressable>
               </View>
+              <Pressable onPress={() => setSelector("tags")} style={themed($selectorButton)}>
+                <Text text="Tags" style={themed($selectorLabel)} />
+                <Text
+                  text={
+                    [
+                      ...currentDraft.tagIds.map(
+                        (id) => tags.find((tag) => tag.id === id)?.name ?? id,
+                      ),
+                      ...currentDraft.newTags,
+                    ].join(", ") || "Not selected"
+                  }
+                  style={themed($selectorValue)}
+                />
+              </Pressable>
             </View>
           ) : (
             <View style={themed($draftBody)}>
@@ -656,6 +705,17 @@ function MoneyAgentDraftCard({
                   value={resolveName(accounts, currentDraft.destinationAccountId)}
                 />
                 <DraftField label="Budget" value={resolveName(budgets, currentDraft.budgetId)} />
+                <DraftField
+                  label="Tags"
+                  value={
+                    [
+                      ...currentDraft.tagIds.map(
+                        (id) => tags.find((tag) => tag.id === id)?.name ?? id,
+                      ),
+                      ...currentDraft.newTags,
+                    ].join(", ") || "Not selected"
+                  }
+                />
               </View>
               {!!currentDraft.notes && (
                 <View style={themed($notesBlock)}>
@@ -740,7 +800,9 @@ function MoneyAgentDraftCard({
                   ? "Destination account"
                   : selector === "category"
                     ? "Category"
-                    : "Budget"
+                    : selector === "budget"
+                      ? "Budget"
+                      : "Tags"
             }
             items={selectorItems}
             selectedIds={
@@ -756,10 +818,22 @@ function MoneyAgentDraftCard({
                     ? currentDraft.categoryId
                       ? [currentDraft.categoryId]
                       : []
-                    : currentDraft.budgetId
-                      ? [currentDraft.budgetId]
-                      : []
+                    : selector === "budget"
+                      ? currentDraft.budgetId
+                        ? [currentDraft.budgetId]
+                        : []
+                      : [...currentDraft.tagIds, ...currentDraft.newTags.map(customTagId)]
             }
+            multiple={selector === "tags"}
+            creatable={selector === "tags"}
+            onCreate={(tag) => {
+              const next = {
+                ...currentDraft,
+                newTags: mergeTagNames(currentDraft.newTags, [tag]),
+              }
+              setLocalDraft(next)
+              updateDraft(next)
+            }}
             onSelect={applySelection}
             onClose={() => setSelector(null)}
           />

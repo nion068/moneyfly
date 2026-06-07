@@ -1,6 +1,6 @@
 import { MoneyAgentEntitySnapshot, MoneyAgentMessage, MoneyAgentTransactionDraft } from "../types"
 
-export const MONEY_AGENT_PROMPT_VERSION = 5
+export const MONEY_AGENT_PROMPT_VERSION = 6
 
 const responseSchema = {
   type: "object",
@@ -52,6 +52,12 @@ const responseSchema = {
             items: { type: "string" },
             description: "Exact listed tag IDs, never tag names.",
           },
+          newTags: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Concise useful tag names that are not already listed. Never put IDs in this field.",
+          },
           notes: { type: ["string", "null"] },
           missingFields: {
             type: "array",
@@ -67,7 +73,6 @@ const responseSchema = {
                 "destinationAccountId",
                 "categoryId",
                 "budgetId",
-                "tagIds",
               ],
             },
           },
@@ -87,6 +92,7 @@ const responseSchema = {
           "categoryId",
           "budgetId",
           "tagIds",
+          "newTags",
           "notes",
           "missingFields",
           "status",
@@ -159,13 +165,15 @@ export function buildMoneyAgentPrompt(args: {
     "Use today's date when no date is provided.",
     "Use the account's currency when no currency is provided.",
     "If an amount is not provided and cannot be derived, use an empty string and include amount in missingFields. Never invent a numeric amount.",
-    "Never invent an entity or ID that is not listed. If no compatible listed entity exists, use null and mark that field missing.",
+    "Never invent an entity or ID that is not listed. If no compatible listed account, category, or budget exists, use null and mark that field missing.",
     "A best-guessed field is not missing: return its selected value and omit it from missingFields.",
     "Mention important assumptions briefly in assistantMessage so the user can review them.",
     "For a withdrawal, source is the user's asset/cash account and destination is an expense account.",
     "For a deposit, source is a revenue account and destination is the user's asset/cash account.",
     "For a transfer, source and destination are both the user's asset/cash accounts.",
-    "Use categoryId for the matching category and tagIds for matching tags. Do not put names in ID fields.",
+    "Use categoryId for the matching category and tagIds for matching listed tags. Do not put names in ID fields.",
+    "Use newTags for concise useful tags that are not already listed. You may infer them from context even when the user did not explicitly name them.",
+    "Tags are optional. Never include tagIds in missingFields and do not create a new tag that duplicates a listed tag name.",
     "Use the user's wording for a concise description. Do not create a transaction yourself.",
     "The app will validate and ask the user to confirm every draft before writing to Firefly.",
     "The only valid response kinds are drafts and clarification.",
@@ -189,6 +197,7 @@ export function cloneDraft(draft: MoneyAgentTransactionDraft): MoneyAgentTransac
   return {
     ...draft,
     tagIds: [...draft.tagIds],
+    newTags: [...(draft.newTags ?? [])],
     missingFields: [...draft.missingFields],
   }
 }

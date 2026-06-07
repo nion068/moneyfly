@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { FlatList, Modal, Pressable, StyleSheet, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useKeyboardState } from "react-native-keyboard-controller"
@@ -21,7 +21,9 @@ type SelectionSheetProps = {
   items: SelectionItem[]
   selectedIds: string[]
   multiple?: boolean
+  creatable?: boolean
   onSelect: (ids: string[]) => void
+  onCreate?: (value: string) => void
   onClose: () => void
 }
 
@@ -31,18 +33,38 @@ export function SelectionSheet({
   items,
   selectedIds,
   multiple = false,
+  creatable = false,
   onSelect,
+  onCreate,
   onClose,
 }: SelectionSheetProps) {
   const { themed } = useAppTheme()
   const [search, setSearch] = useState("")
   const keyboardHeight = useKeyboardState((state) => (state.isVisible ? state.height : 0))
+  const keyboardInset = keyboardHeight
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return query
+    const matches = query
       ? items.filter((item) => `${item.title} ${item.subtitle ?? ""}`.toLowerCase().includes(query))
       : items
-  }, [items, search])
+    if (!multiple) return matches
+
+    return [...matches].sort((left, right) => {
+      const leftSelected = selectedIds.includes(left.id)
+      const rightSelected = selectedIds.includes(right.id)
+      if (leftSelected === rightSelected) return 0
+      return leftSelected ? -1 : 1
+    })
+  }, [items, multiple, search, selectedIds])
+  const createValue = search.trim().replace(/^#+/, "").trim()
+  const canCreate =
+    creatable &&
+    !!createValue &&
+    !items.some((item) => item.title.trim().toLocaleLowerCase() === createValue.toLocaleLowerCase())
+
+  useEffect(() => {
+    if (!visible) setSearch("")
+  }, [visible])
 
   const select = (id: string) => {
     if (!multiple) {
@@ -72,7 +94,7 @@ export function SelectionSheet({
         <Pressable style={themed($dismissArea)} onPress={onClose} />
         <View
           pointerEvents="box-none"
-          style={[themed($keyboardInset), { paddingBottom: keyboardHeight }]}
+          style={[themed($keyboardInset), { paddingBottom: keyboardInset }]}
           testID="selection-sheet-keyboard-inset"
         >
           <View style={themed($sheet)}>
@@ -100,13 +122,40 @@ export function SelectionSheet({
                 keyExtractor={(item) => item.id}
                 keyboardShouldPersistTaps="handled"
                 style={themed($resultsList)}
-                contentContainerStyle={themed([$list, filteredItems.length === 0 && $emptyList])}
-                ListEmptyComponent={<Text text="No matches found." style={themed($empty)} />}
+                contentContainerStyle={themed([
+                  $list,
+                  filteredItems.length === 0 && !canCreate && $emptyList,
+                ])}
+                ListHeaderComponent={
+                  canCreate ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Add tag ${createValue}`}
+                      onPress={() => {
+                        onCreate?.(createValue)
+                        setSearch("")
+                      }}
+                      style={themed($item)}
+                    >
+                      <View style={themed($itemIcon)}>
+                        <MaterialCommunityIcons name="plus" size={20} style={themed($icon)} />
+                      </View>
+                      <View style={themed($itemText)}>
+                        <Text text={`Add "${createValue}"`} style={themed($itemTitle)} />
+                        <Text text="Create a new tag" style={themed($subtitle)} />
+                      </View>
+                    </Pressable>
+                  ) : null
+                }
+                ListEmptyComponent={
+                  canCreate ? null : <Text text="No matches found." style={themed($empty)} />
+                }
                 renderItem={({ item }) => {
                   const selected = selectedIds.includes(item.id)
                   return (
                     <Pressable
                       accessibilityRole={multiple ? "checkbox" : "radio"}
+                      accessibilityLabel={item.title}
                       accessibilityState={{ selected, checked: selected }}
                       onPress={() => select(item.id)}
                       style={themed($item)}
@@ -134,6 +183,11 @@ export function SelectionSheet({
                 }}
               />
             </View>
+            {multiple && (
+              <Pressable accessibilityRole="button" onPress={onClose} style={themed($doneButton)}>
+                <Text text="Done" style={themed($doneText)} />
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
@@ -142,7 +196,7 @@ export function SelectionSheet({
 }
 
 const $overlay: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.palette.overlay50,
+  backgroundColor: colors.palette.overlay80,
   flex: 1,
   justifyContent: "flex-end",
 })
@@ -255,4 +309,19 @@ const $empty: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   color: colors.textDim,
   padding: spacing.xl,
   textAlign: "center",
+})
+
+const $doneButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.primary300,
+  borderRadius: 12,
+  justifyContent: "center",
+  marginBottom: spacing.md,
+  minHeight: 48,
+})
+
+const $doneText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.bold,
+  fontSize: 15,
 })
