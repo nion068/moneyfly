@@ -1,4 +1,9 @@
-import { createDraftGroup, keepDraftGroups, normalizeMoneyAgentConversation } from "./conversation"
+import {
+  combineDraftDateWithMessageTime,
+  createDraftGroup,
+  keepDraftGroups,
+  normalizeMoneyAgentConversation,
+} from "./conversation"
 import type { MoneyAgentConversationState, MoneyAgentTransactionDraft } from "./types"
 
 const draft: MoneyAgentTransactionDraft = {
@@ -24,6 +29,12 @@ function idGenerator() {
 }
 
 describe("money agent conversation groups", () => {
+  it("combines the draft date with the originating message sent time", () => {
+    const sentAt = new Date(2026, 5, 7, 14, 35, 42).toISOString()
+
+    expect(combineDraftDateWithMessageTime("2026-06-07", sentAt)).toBe("2026-06-07T14:35:42")
+  })
+
   it("replaces model draft IDs and associates drafts with their source message", () => {
     const group = createDraftGroup(
       [draft, { ...draft, description: "Transport" }],

@@ -21,6 +21,7 @@ import {
   buildMoneyAgentPrompt,
   buildMoneyAgentDraftRetryPrompt,
   cloneDraft,
+  combineDraftDateWithMessageTime,
   createDraftGroup,
   GeminiProvider,
   keepDraftGroups,
@@ -83,13 +84,13 @@ function nowIso() {
   return new Date().toISOString()
 }
 
-function currentDateInTimeZone(timeZone: string) {
+function currentDateInTimeZone(timeZone: string, date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date())
+  }).formatToParts(date)
   const value = (type: "year" | "month" | "day") =>
     parts.find((part) => part.type === type)?.value ?? ""
   return `${value("year")}-${value("month")}-${value("day")}`
@@ -219,8 +220,8 @@ function isDraftReady(draft: MoneyAgentTransactionDraft) {
 function buildStoreRequest(
   draft: MoneyAgentTransactionDraft,
   snapshot: MoneyAgentEntitySnapshot,
+  messageSentAt: string,
 ): StoreTransactionRequest {
-  const parsed = new Date(`${draft.date}T12:00:00`)
   return {
     error_if_duplicate_hash: false,
     apply_rules: true,
@@ -228,11 +229,7 @@ function buildStoreRequest(
     transactions: [
       {
         type: draft.type,
-        date: `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(
-          parsed.getDate(),
-        ).padStart(2, "0")}T${String(parsed.getHours()).padStart(2, "0")}:${String(
-          parsed.getMinutes(),
-        ).padStart(2, "0")}:00`,
+        date: combineDraftDateWithMessageTime(draft.date, messageSentAt),
         amount: Number(draft.amount).toFixed(2),
         description: draft.description.trim(),
         source_id: draft.sourceAccountId ?? undefined,
@@ -348,8 +345,8 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const appendDrafts = useCallback(
-    (drafts: MoneyAgentTransactionDraft[], sourceMessageId: string) => {
-      const group = createDraftGroup(drafts, sourceMessageId, nowIso(), generateId)
+    (drafts: MoneyAgentTransactionDraft[], sourceMessage: MoneyAgentMessage) => {
+      const group = createDraftGroup(drafts, sourceMessage.id, sourceMessage.createdAt, generateId)
       setConversation((current) => ({
         ...current,
         drafts: [
@@ -503,13 +500,26 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
       }
 
       try {
+        const sourceGroup = conversation.items.find(
+          (item): item is Extract<MoneyAgentChatItem, { kind: "draft-group" }> =>
+            item.kind === "draft-group" && item.draftIds.includes(draftId),
+        )
+        const sourceMessageId = sourceGroup?.sourceMessageId
+        const messageSentAt =
+          conversation.items.find(
+            (item): item is Extract<MoneyAgentChatItem, { kind: "message" }> =>
+              item.kind === "message" && item.message.id === sourceMessageId,
+          )?.message.createdAt ?? nowIso()
+
         setConversation((state) => ({
           ...state,
           drafts: state.drafts.map((draft) =>
             draft.id === draftId ? { ...draft, status: "confirming" } : draft,
           ),
         }))
-        const succeeded = await firefly.createTransaction(buildStoreRequest(resolved, snapshot))
+        const succeeded = await firefly.createTransaction(
+          buildStoreRequest(resolved, snapshot, messageSentAt),
+        )
         if (!succeeded) {
           setError("Firefly rejected the transaction.")
           setConversation((state) => ({
@@ -550,7 +560,7 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
         }))
       }
     },
-    [conversation.drafts, firefly, snapshot, updateDraft],
+    [conversation.drafts, conversation.items, firefly, snapshot, updateDraft],
   )
 
   const sendMessage = useCallback(
@@ -596,7 +606,7 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
 
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
         const prompt = buildMoneyAgentPrompt({
-          currentDate: currentDateInTimeZone(timeZone),
+          currentDate: currentDateInTimeZone(timeZone, new Date(userMessage.createdAt)),
           timeZone,
           snapshot,
           messages: [
@@ -669,7 +679,7 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
         }))
 
         if (result.data.kind === "drafts") {
-          appendDrafts(result.data.drafts, userMessage.id)
+          appendDrafts(result.data.drafts, userMessage)
         }
       } catch (caught) {
         const message =

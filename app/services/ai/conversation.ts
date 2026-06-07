@@ -6,6 +6,16 @@ import type {
 
 type IdGenerator = () => string
 
+export function combineDraftDateWithMessageTime(draftDate: string, messageSentAt: string) {
+  const parsedSentAt = new Date(messageSentAt)
+  const sentAt = Number.isNaN(parsedSentAt.getTime()) ? new Date() : parsedSentAt
+  const pad = (value: number) => String(value).padStart(2, "0")
+
+  return `${draftDate}T${pad(sentAt.getHours())}:${pad(sentAt.getMinutes())}:${pad(
+    sentAt.getSeconds(),
+  )}`
+}
+
 export function normalizeMoneyAgentConversation(
   conversation: MoneyAgentConversationState,
   generateId: IdGenerator,
