@@ -42,6 +42,17 @@ function toError(response: Response | undefined, fallback = "Unable to reach Gem
 function isDraftField(value: unknown): value is MoneyAgentTransactionDraft {
   if (!value || typeof value !== "object") return false
   const draft = value as MoneyAgentTransactionDraft
+  const nullableString = (field: unknown) => field === null || typeof field === "string"
+  const validMissingFields = [
+    "amount",
+    "date",
+    "description",
+    "sourceAccountId",
+    "destinationAccountId",
+    "categoryId",
+    "budgetId",
+    "tagIds",
+  ]
   return (
     typeof draft.id === "string" &&
     (draft.type === "withdrawal" || draft.type === "deposit" || draft.type === "transfer") &&
@@ -49,8 +60,15 @@ function isDraftField(value: unknown): value is MoneyAgentTransactionDraft {
     typeof draft.currencyCode === "string" &&
     typeof draft.date === "string" &&
     typeof draft.description === "string" &&
+    nullableString(draft.sourceAccountId) &&
+    nullableString(draft.destinationAccountId) &&
+    nullableString(draft.categoryId) &&
+    nullableString(draft.budgetId) &&
     Array.isArray(draft.tagIds) &&
+    draft.tagIds.every((tagId) => typeof tagId === "string") &&
+    nullableString(draft.notes) &&
     Array.isArray(draft.missingFields) &&
+    draft.missingFields.every((field) => validMissingFields.includes(field)) &&
     draft.status === "proposed"
   )
 }
@@ -93,9 +111,14 @@ function parseResponseText(text: string): AiResult<MoneyAgentResponse> {
       }
     }
 
-    const drafts = Array.isArray(parsed.drafts) ? parsed.drafts.filter(isDraftField) : []
-    if (drafts.length === 0) {
+    if (!Array.isArray(parsed.drafts) || parsed.drafts.length === 0) {
       return { kind: "invalid-response", message: "Gemini returned no valid drafts." }
+    }
+    if (!parsed.drafts.every(isDraftField)) {
+      return {
+        kind: "invalid-response",
+        message: "Gemini returned one or more malformed drafts.",
+      }
     }
 
     return {
@@ -103,7 +126,7 @@ function parseResponseText(text: string): AiResult<MoneyAgentResponse> {
       data: {
         kind: "drafts",
         assistantMessage: parsed.assistantMessage,
-        drafts,
+        drafts: parsed.drafts,
       },
     }
   } catch {

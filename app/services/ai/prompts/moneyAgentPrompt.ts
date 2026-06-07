@@ -1,6 +1,6 @@
 import { MoneyAgentEntitySnapshot, MoneyAgentMessage, MoneyAgentTransactionDraft } from "../types"
 
-export const MONEY_AGENT_PROMPT_VERSION = 3
+export const MONEY_AGENT_PROMPT_VERSION = 4
 
 const responseSchema = {
   type: "object",
@@ -138,6 +138,11 @@ export function buildMoneyAgentPrompt(args: {
     "Understand the user's natural-language request using the human-readable entity names below.",
     "Return the matching ID in draft ID fields. IDs are opaque identifiers, not meaningful names.",
     "For every transaction-like message, return at least one draft immediately, even when the message is incomplete or ambiguous.",
+    "Return exactly one draft for every distinct withdrawal, deposit, or transfer described by the user.",
+    "Never combine separate payments, purchases, income, deposits, or transfers into one draft, even when they share a date or account.",
+    "Details that apply to the whole message, such as today or from bKash, may be applied to every relevant draft.",
+    'Example: "Paid 450 for lunch and 120 for transport today from bKash" returns two withdrawal drafts with the same date and source account.',
+    'Example: "Salary 50000 arrived in Bank and I moved 10000 from Bank to Savings" returns one deposit draft and one transfer draft.',
     "Do not respond with clarification instead of a draft for a transaction-like message.",
     "Best-effort matching order: exact mentioned name, close human-readable name, semantic purpose/category fit, then the most probable compatible listed entity.",
     "Choose the single most probable listed account, category, budget, and tags when the user does not specify them.",
@@ -177,6 +182,7 @@ export function buildMoneyAgentDraftRetryPrompt(prompt: string) {
     "Correction for the previous response:",
     "Re-evaluate the latest user message under the first-turn draft rule.",
     "If it can reasonably describe a withdrawal, deposit, or transfer, return kind drafts now.",
+    "Return one separate draft for every distinct transaction in the message; never combine them.",
     "Select the most probable compatible listed entities and current date.",
     "Keep only genuinely unavailable values, especially an unknown amount, in missingFields.",
     "Do not return clarification merely because some transaction details were omitted.",

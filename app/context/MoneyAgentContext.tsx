@@ -21,7 +21,9 @@ import {
   buildMoneyAgentPrompt,
   buildMoneyAgentDraftRetryPrompt,
   cloneDraft,
+  createDraftGroup,
   GeminiProvider,
+  keepDraftGroups,
   loadSecret,
   MoneyAgentChatItem,
   MoneyAgentConversationState,
@@ -32,6 +34,7 @@ import {
   AiProviderId,
   MoneyAgentSaveSettingsInput,
   MoneyAgentTransactionDraft,
+  normalizeMoneyAgentConversation,
   removeSecret,
   saveSecret,
 } from "@/services/ai"
@@ -254,7 +257,7 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
   const [storedModel, setStoredModel] = useMMKVString(MODEL_KEY)
   const [conversation, setConversation] = useState<MoneyAgentConversationState>(() => {
     const saved = load<MoneyAgentConversationState>(CONVERSATION_KEY)
-    return saved ?? defaultConversation()
+    return saved ? normalizeMoneyAgentConversation(saved, generateId) : defaultConversation()
   })
   const [snapshot, setSnapshot] = useState<MoneyAgentEntitySnapshot>(() => {
     const saved = load<MoneyAgentEntitySnapshot>(SNAPSHOT_KEY)
@@ -345,22 +348,15 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [])
 
   const appendDrafts = useCallback(
-    (drafts: MoneyAgentTransactionDraft[]) => {
+    (drafts: MoneyAgentTransactionDraft[], sourceMessageId: string) => {
+      const group = createDraftGroup(drafts, sourceMessageId, nowIso(), generateId)
       setConversation((current) => ({
         ...current,
         drafts: [
-          ...drafts.map((draft) => ensureDraftConsistency(draft, snapshot)),
+          ...group.drafts.map((draft) => ensureDraftConsistency(draft, snapshot)),
           ...current.drafts,
         ],
-        items: [
-          ...current.items,
-          ...drafts.map((draft) => ({
-            id: draft.id,
-            kind: "draft" as const,
-            draftId: draft.id,
-            createdAt: nowIso(),
-          })),
-        ],
+        items: [...current.items, group.item],
       }))
     },
     [snapshot],
@@ -466,7 +462,7 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
         : {
             items: [
               ...defaultConversation().items,
-              ...current.items.filter((item) => item.kind === "draft"),
+              ...keepDraftGroups(current.items, current.drafts),
             ],
             drafts: current.drafts,
           },
@@ -673,7 +669,7 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
         }))
 
         if (result.data.kind === "drafts") {
-          appendDrafts(result.data.drafts)
+          appendDrafts(result.data.drafts, userMessage.id)
         }
       } catch (caught) {
         const message =

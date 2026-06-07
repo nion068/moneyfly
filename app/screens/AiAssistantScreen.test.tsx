@@ -148,4 +148,78 @@ describe("AiAssistantScreen", () => {
     expect(getByText("Lunch at KFC")).toBeTruthy()
     expect(getByText("Edit")).toBeTruthy()
   })
+
+  it("renders a grouped count with only the first draft expanded and independent actions", () => {
+    mockMoneyAgentValue.items.push({
+      id: "group-1",
+      kind: "draft-group",
+      groupId: "group-1",
+      draftIds: ["draft-1", "draft-2"],
+      sourceMessageId: "message-1",
+      createdAt: "2026-06-07T12:01:00.000Z",
+    })
+    mockMoneyAgentValue.drafts.push(
+      {
+        id: "draft-1",
+        type: "withdrawal",
+        amount: "450",
+        currencyCode: "BDT",
+        date: "2026-06-07",
+        description: "Lunch",
+        sourceAccountId: "account-1",
+        destinationAccountId: "expense-1",
+        categoryId: null,
+        budgetId: null,
+        tagIds: [],
+        notes: null,
+        missingFields: [],
+        status: "proposed",
+      },
+      {
+        id: "draft-2",
+        type: "withdrawal",
+        amount: "120",
+        currencyCode: "BDT",
+        date: "2026-06-07",
+        description: "Transport",
+        sourceAccountId: "account-1",
+        destinationAccountId: "expense-1",
+        categoryId: null,
+        budgetId: null,
+        tagIds: [],
+        notes: null,
+        missingFields: [],
+        status: "failed",
+        errorMessage: "Try again.",
+      },
+    )
+
+    const { getAllByLabelText, getAllByText, getByText, queryByText } = render(
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 375, height: 812 },
+          insets: { top: 44, left: 0, right: 0, bottom: 34 },
+        }}
+      >
+        <ThemeProvider initialContext="dark">
+          <AiAssistantScreen navigation={navigation} route={{} as never} />
+        </ThemeProvider>
+      </SafeAreaProvider>,
+    )
+
+    expect(getByText("2 transaction drafts")).toBeTruthy()
+    expect(getByText("Lunch")).toBeTruthy()
+    expect(queryByText("Transport")).toBeNull()
+    expect(getAllByLabelText("Collapse transaction draft")).toHaveLength(1)
+    expect(getAllByLabelText("Expand transaction draft")).toHaveLength(1)
+
+    fireEvent.press(getAllByLabelText("Expand transaction draft")[0])
+    expect(getByText("Transport")).toBeTruthy()
+    expect(getAllByText("Confirm")).toHaveLength(2)
+
+    fireEvent.press(getAllByText("Discard")[1])
+    expect(mockMoneyAgentValue.discardDraft).toHaveBeenCalledWith("draft-2")
+    fireEvent.press(getAllByText("Confirm")[0])
+    expect(mockMoneyAgentValue.confirmDraft).toHaveBeenCalledWith("draft-1")
+  })
 })

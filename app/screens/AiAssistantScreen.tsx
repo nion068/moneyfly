@@ -171,10 +171,19 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 text={item.message.text}
                 createdAt={item.message.createdAt}
               />
+            ) : item.kind === "draft-group" ? (
+              <MoneyAgentDraftGroup
+                key={item.id}
+                draftIds={item.draftIds}
+                accounts={snapshot.accounts}
+                categories={snapshot.categories}
+                budgets={snapshot.budgets}
+              />
             ) : (
               <MoneyAgentDraftCard
                 key={item.id}
                 draftId={item.draftId}
+                initiallyExpanded
                 accounts={snapshot.accounts}
                 categories={snapshot.categories}
                 budgets={snapshot.budgets}
@@ -226,6 +235,43 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
   )
 }
 
+function MoneyAgentDraftGroup({
+  draftIds,
+  accounts,
+  categories,
+  budgets,
+}: {
+  draftIds: string[]
+  accounts: { id: string; name: string }[]
+  categories: { id: string; name: string }[]
+  budgets: { id: string; name: string }[]
+}) {
+  const { themed } = useAppTheme()
+  const { drafts } = useMoneyAgent()
+  const visibleDraftIds = draftIds.filter((draftId) => drafts.some((draft) => draft.id === draftId))
+
+  if (visibleDraftIds.length === 0) return null
+
+  return (
+    <View style={themed($draftGroup)}>
+      <Text
+        text={`${visibleDraftIds.length} transaction draft${visibleDraftIds.length === 1 ? "" : "s"}`}
+        style={themed($draftGroupTitle)}
+      />
+      {visibleDraftIds.map((draftId, index) => (
+        <MoneyAgentDraftCard
+          key={draftId}
+          draftId={draftId}
+          initiallyExpanded={index === 0}
+          accounts={accounts}
+          categories={categories}
+          budgets={budgets}
+        />
+      ))}
+    </View>
+  )
+}
+
 function MessageBubble({
   role,
   text,
@@ -265,11 +311,13 @@ function MessageBubble({
 
 function MoneyAgentDraftCard({
   draftId,
+  initiallyExpanded,
   accounts,
   categories,
   budgets,
 }: {
   draftId: string
+  initiallyExpanded: boolean
   accounts: { id: string; name: string }[]
   categories: { id: string; name: string }[]
   budgets: { id: string; name: string }[]
@@ -280,7 +328,7 @@ function MoneyAgentDraftCard({
   } = useAppTheme()
   const { drafts, updateDraft, confirmDraft, discardDraft } = useMoneyAgent()
   const draft = drafts.find((item) => item.id === draftId)
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded)
   const [editing, setEditing] = useState(false)
   const [selector, setSelector] = useState<"source" | "destination" | "category" | "budget" | null>(
     null,
@@ -651,6 +699,17 @@ function DraftField({ label, value }: { label: string; value: string }) {
 
 const $screenContent: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
+})
+
+const $draftGroup: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.sm,
+})
+
+const $draftGroupTitle: ThemedStyle<TextStyle> = ({ colors, spacing, typography }) => ({
+  color: colors.textDim,
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
+  marginTop: spacing.xs,
 })
 
 const $container: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({

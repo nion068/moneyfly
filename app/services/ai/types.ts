@@ -50,6 +50,14 @@ export type MoneyAgentChatItem =
       draftId: string
       createdAt: string
     }
+  | {
+      id: string
+      kind: "draft-group"
+      groupId: string
+      draftIds: string[]
+      sourceMessageId: string
+      createdAt: string
+    }
 
 export type MoneyAgentDraftField =
   | "amount"

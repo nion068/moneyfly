@@ -1,4 +1,5 @@
 export * from "./credentialStore"
+export * from "./conversation"
 export * from "./prompts/moneyAgentPrompt"
 export * from "./providers/gemini/GeminiProvider"
 export * from "./types"

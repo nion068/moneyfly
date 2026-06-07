@@ -165,11 +165,20 @@ Required behavior:
 - Retry a failed turn without duplicating the user message.
 - Edit a draft locally through the same account/category selectors used by manual entry.
 - Confirm one draft at a time.
+- Split every distinct withdrawal, deposit, or transfer in one message into its own draft. Shared
+  details such as date and account may be applied to each relevant draft, but separate financial
+  events must never be combined.
+- Store drafts from one assistant turn in a proposal group linked to the source user message. Show
+  one group heading, expand the first card initially, and keep every card independently editable,
+  confirmable, discardable, and retryable.
+- Generate draft and group IDs in the app rather than trusting provider-supplied identifiers.
+- Reject the complete provider response when any returned draft is malformed.
 - On success, update the card to `confirmed` and refresh Firefly data.
 - On failure, retain the draft as `failed` with retry available.
 - Discard changes only that card's status.
 - Clear chat removes resolved history.
 - If unresolved drafts exist, offer **Cancel**, **Discard drafts and clear**, or **Keep drafts**.
+  Keeping drafts preserves complete proposal groups and their draft associations.
 
 For the first release, keep one active conversation. Multiple conversation history can be added
 later without changing message storage.
