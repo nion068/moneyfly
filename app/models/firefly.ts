@@ -168,7 +168,9 @@ export type StoreTransactionSplit = {
   source_id?: string
   destination_name?: string
   destination_id?: string
+  category_id?: string
   category_name?: string
+  budget_id?: string
   budget_name?: string
   tags?: string[]
   notes?: string

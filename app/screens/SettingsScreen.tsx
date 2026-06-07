@@ -1,10 +1,13 @@
-import { FC } from "react"
+import { FC, useEffect, useState } from "react"
 import { ActivityIndicator, Pressable, TextStyle, View, ViewStyle } from "react-native"
 
+import { Button } from "@/components/Button"
 import { FinanceCard, SectionHeader } from "@/components/firefly/FinancePrimitives"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
+import { TextField } from "@/components/TextField"
 import { useFirefly } from "@/context/FireflyContext"
+import { useMoneyAgent } from "@/context/MoneyAgentContext"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -27,7 +30,23 @@ export const SettingsScreen: FC<SettingsScreenProps> = () => {
     accounts,
     transactions,
   } = useFirefly()
+  const {
+    providerId,
+    model,
+    hasApiKey,
+    isSavingSettings,
+    error: moneyAgentError,
+    saveSettings,
+    removeCredentials,
+    testCurrentConnection,
+  } = useMoneyAgent()
+  const [modelInput, setModelInput] = useState(model)
+  const [apiKeyInput, setApiKeyInput] = useState("")
   const error = transactions.error ?? accounts.error
+
+  useEffect(() => {
+    setModelInput(model)
+  }, [model])
 
   return (
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
@@ -89,8 +108,63 @@ export const SettingsScreen: FC<SettingsScreenProps> = () => {
       </FinanceCard>
 
       <FinanceCard>
-        <SectionHeader title="AI Assistant" />
-        <SettingRow label="Gemini" value="Coming later" />
+        <SectionHeader title="Money Agent" />
+        <SettingRow label="Provider" value={providerId.toUpperCase()} />
+        <SettingRow
+          label="Key status"
+          value={hasApiKey ? "Saved securely" : "Not configured"}
+          tone={hasApiKey ? "positive" : undefined}
+        />
+        <TextField
+          label="Model"
+          value={modelInput}
+          onChangeText={setModelInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <TextField
+          label="Gemini API key"
+          value={apiKeyInput}
+          onChangeText={setApiKeyInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+          placeholder={
+            hasApiKey ? "Leave blank to keep the saved key" : "Enter your Gemini API key"
+          }
+        />
+        {!!moneyAgentError && <Text text={moneyAgentError} style={themed($error)} />}
+        <Pressable
+          disabled={isSavingSettings}
+          onPress={() =>
+            void testCurrentConnection({ providerId, model: modelInput, apiKey: apiKeyInput })
+          }
+          style={themed($refreshButton)}
+        >
+          {isSavingSettings && <ActivityIndicator color={colors.tint} size="small" />}
+          <Text text="Test key" style={themed($refreshText)} />
+        </Pressable>
+        <Button
+          text={isSavingSettings ? "Saving..." : "Save settings"}
+          preset="filled"
+          disabled={isSavingSettings}
+          onPress={() =>
+            void (async () => {
+              const ok = await saveSettings({ providerId, model: modelInput, apiKey: apiKeyInput })
+              if (ok) setApiKeyInput("")
+            })()
+          }
+        />
+        <Button
+          text="Remove key"
+          onPress={() =>
+            void (async () => {
+              await removeCredentials()
+              setApiKeyInput("")
+            })()
+          }
+          disabled={isSavingSettings || !hasApiKey}
+        />
       </FinanceCard>
 
       <FinanceCard>

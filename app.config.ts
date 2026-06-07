@@ -36,6 +36,6 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
         ],
       },
     },
-    plugins: [...existingPlugins, "@react-native-community/datetimepicker"],
+    plugins: [...existingPlugins, "@react-native-community/datetimepicker", "expo-secure-store"],
   }
 }
