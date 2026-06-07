@@ -341,11 +341,19 @@ export function formatDateKey(date: Date) {
 }
 
 export function groupTransactionsByDate(transactions: FlatTransaction[]) {
-  return transactions.reduce<Record<string, FlatTransaction[]>>((result, transaction) => {
+  const grouped = transactions.reduce<Record<string, FlatTransaction[]>>((result, transaction) => {
     const day = transaction.date.slice(0, 10)
     result[day] = [...(result[day] ?? []), transaction]
     return result
   }, {})
+
+  Object.values(grouped).forEach((dayTransactions) => {
+    dayTransactions.sort(
+      (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime(),
+    )
+  })
+
+  return grouped
 }
 
 export type LocalTransactionFilters = {

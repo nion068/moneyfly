@@ -139,10 +139,15 @@ describe("Firefly transforms", () => {
     expect(shiftMonth(new Date(2025, 11, 1), 1)).toEqual(new Date(2026, 0, 1))
   })
 
-  it("groups flattened transactions by calendar date", () => {
-    expect(
-      Object.keys(groupTransactionsByDate(flattenFireflyTransactions(groupedTransactions))),
-    ).toEqual(["2026-06-04"])
+  it("groups transactions by calendar date with each day ordered by time descending", () => {
+    const transactions = flattenFireflyTransactions(groupedTransactions).reverse()
+    const grouped = groupTransactionsByDate(transactions)
+
+    expect(Object.keys(grouped)).toEqual(["2026-06-04"])
+    expect(grouped["2026-06-04"].map((transaction) => transaction.journalId)).toEqual([
+      "journal-1",
+      "journal-2",
+    ])
   })
 
   it("resolves cash wallet by role before name fallback", () => {
