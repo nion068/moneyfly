@@ -19,7 +19,6 @@ import type {
 } from "@/models/firefly"
 import {
   buildMoneyAgentPrompt,
-  buildMoneyAgentDraftRetryPrompt,
   cloneDraft,
   combineDraftDateWithMessageTime,
   createDraftGroup,
@@ -618,19 +617,11 @@ export const MoneyAgentProvider: FC<PropsWithChildren> = ({ children }) => {
           ],
         })
 
-        let result = await provider.send({
+        const result = await provider.send({
           apiKey,
           model,
           prompt,
         })
-
-        if (result.kind === "ok" && result.data.kind === "clarification") {
-          result = await provider.send({
-            apiKey,
-            model,
-            prompt: buildMoneyAgentDraftRetryPrompt(prompt),
-          })
-        }
 
         if (result.kind !== "ok") {
           setError(result.message)

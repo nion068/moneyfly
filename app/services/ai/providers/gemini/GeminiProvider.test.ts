@@ -119,6 +119,82 @@ describe("GeminiProvider", () => {
     }
   })
 
+  it("parses a transaction-focused clarification response", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    kind: "clarification",
+                    assistantMessage: "I can only help prepare transaction drafts.",
+                    clarificationQuestion:
+                      "Describe a transaction, for example: Paid 450 for lunch from bKash.",
+                    drafts: null,
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    } as never)
+
+    const result = await GeminiProvider.send({
+      apiKey: "key",
+      model: "gemini-2.5-flash",
+      prompt: "prompt",
+    })
+
+    expect(result).toEqual({
+      kind: "ok",
+      data: {
+        kind: "clarification",
+        assistantMessage: "I can only help prepare transaction drafts.",
+        clarificationQuestion:
+          "Describe a transaction, for example: Paid 450 for lunch from bKash.",
+      },
+    })
+  })
+
+  it("rejects general answer responses", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    kind: "answer",
+                    assistantMessage: "Here is a general-purpose answer.",
+                    clarificationQuestion: null,
+                    drafts: null,
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    } as never)
+
+    const result = await GeminiProvider.send({
+      apiKey: "key",
+      model: "gemini-2.5-flash",
+      prompt: "prompt",
+    })
+
+    expect(result).toEqual({
+      kind: "invalid-response",
+      message: "Gemini returned an unknown response kind.",
+    })
+  })
+
   it("rejects a multi-transaction response when any draft is malformed", async () => {
     jest.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,

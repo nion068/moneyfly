@@ -1,4 +1,4 @@
-import { buildMoneyAgentDraftRetryPrompt, buildMoneyAgentPrompt } from "./moneyAgentPrompt"
+import { buildMoneyAgentPrompt, getMoneyAgentResponseSchema } from "./moneyAgentPrompt"
 
 describe("buildMoneyAgentPrompt", () => {
   it("includes the current snapshot and only the recent conversation turns", () => {
@@ -35,17 +35,20 @@ describe("buildMoneyAgentPrompt", () => {
     expect(prompt).toContain("Choose the single most probable listed account")
     expect(prompt).toContain("Never invent a numeric amount")
     expect(prompt).toContain("Use today's date")
+    expect(prompt).toContain("Never answer general-purpose questions")
+    expect(prompt).toContain("If no real transaction is identifiable, return clarification")
+    expect(prompt).toContain("Help me add a transaction")
+    expect(prompt).toContain("Paid 450 for lunch from bKash")
     expect(prompt).not.toContain("message-0")
     expect(prompt).toContain("message-12")
   })
 
-  it("builds a retry that requires incomplete transaction requests to become drafts", () => {
-    const prompt = buildMoneyAgentDraftRetryPrompt("original prompt")
+  it("only permits drafts and transaction-focused clarification responses", () => {
+    const schema = getMoneyAgentResponseSchema()
 
-    expect(prompt).toContain("original prompt")
-    expect(prompt).toContain("return kind drafts now")
-    expect(prompt).toContain("Do not return clarification")
-    expect(prompt).toContain("unknown amount")
-    expect(prompt).toContain("one separate draft for every distinct transaction")
+    expect(schema.properties.kind.enum).toEqual(["clarification", "drafts"])
+    expect(schema.properties.clarificationQuestion.description).toContain(
+      "ask for a concrete transaction",
+    )
   })
 })

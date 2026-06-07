@@ -82,16 +82,12 @@ function parseResponseText(text: string): AiResult<MoneyAgentResponse> {
       drafts?: unknown
     }
 
-    if (parsed.kind !== "answer" && parsed.kind !== "clarification" && parsed.kind !== "drafts") {
+    if (parsed.kind !== "clarification" && parsed.kind !== "drafts") {
       return { kind: "invalid-response", message: "Gemini returned an unknown response kind." }
     }
 
     if (typeof parsed.assistantMessage !== "string") {
       return { kind: "invalid-response", message: "Gemini returned an invalid assistant message." }
-    }
-
-    if (parsed.kind === "answer") {
-      return { kind: "ok", data: { kind: "answer", assistantMessage: parsed.assistantMessage } }
     }
 
     if (parsed.kind === "clarification") {
@@ -207,7 +203,7 @@ export const GeminiProvider: MoneyAgentProvider = {
     const result = await callGemini({
       apiKey,
       model,
-      prompt: `${prompt}\nReply with: {"kind":"answer","assistantMessage":"ok","clarificationQuestion":null,"drafts":null}`,
+      prompt: `${prompt}\nReply with: {"kind":"clarification","assistantMessage":"Money Agent is ready.","clarificationQuestion":"Describe a transaction, for example: Paid 450 for lunch from bKash.","drafts":null}`,
     })
     if (result.kind !== "ok") return result
     return { kind: "ok", data: true }

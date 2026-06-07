@@ -95,10 +95,6 @@ export type MoneyAgentConversationState = {
 
 export type MoneyAgentResponse =
   | {
-      kind: "answer"
-      assistantMessage: string
-    }
-  | {
       kind: "clarification"
       assistantMessage: string
       clarificationQuestion: string
