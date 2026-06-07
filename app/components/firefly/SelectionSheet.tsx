@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
-import { FlatList, Modal, Pressable, TextStyle, View, ViewStyle } from "react-native"
+import { FlatList, Modal, Pressable, StyleSheet, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { useKeyboardState } from "react-native-keyboard-controller"
 
 import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
@@ -35,6 +36,7 @@ export function SelectionSheet({
 }: SelectionSheetProps) {
   const { themed } = useAppTheme()
   const [search, setSearch] = useState("")
+  const keyboardHeight = useKeyboardState((state) => (state.isVisible ? state.height : 0))
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase()
     return query
@@ -64,61 +66,75 @@ export function SelectionSheet({
       animationType="slide"
       onRequestClose={onClose}
       statusBarTranslucent
+      navigationBarTranslucent
     >
       <View style={themed($overlay)}>
         <Pressable style={themed($dismissArea)} onPress={onClose} />
-        <View style={themed($sheet)}>
-          <View style={themed($handle)} />
-          <View style={themed($header)}>
-            <Text text={title} style={themed($title)} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close selector"
-              onPress={onClose}
-            >
-              <MaterialCommunityIcons name="close" size={24} style={themed($icon)} />
-            </Pressable>
+        <View
+          pointerEvents="box-none"
+          style={[themed($keyboardInset), { paddingBottom: keyboardHeight }]}
+          testID="selection-sheet-keyboard-inset"
+        >
+          <View style={themed($sheet)}>
+            <View style={themed($handle)} />
+            <View style={themed($header)}>
+              <Text text={title} style={themed($title)} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close selector"
+                onPress={onClose}
+              >
+                <MaterialCommunityIcons name="close" size={24} style={themed($icon)} />
+              </Pressable>
+            </View>
+            <TextField
+              value={search}
+              onChangeText={setSearch}
+              placeholder={`Search ${title.toLowerCase()}...`}
+              autoCapitalize="none"
+              inputWrapperStyle={themed($search)}
+            />
+            <View style={themed($results)}>
+              <FlatList
+                data={filteredItems}
+                keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
+                style={themed($resultsList)}
+                contentContainerStyle={themed([$list, filteredItems.length === 0 && $emptyList])}
+                ListEmptyComponent={<Text text="No matches found." style={themed($empty)} />}
+                renderItem={({ item }) => {
+                  const selected = selectedIds.includes(item.id)
+                  return (
+                    <Pressable
+                      accessibilityRole={multiple ? "checkbox" : "radio"}
+                      accessibilityState={{ selected, checked: selected }}
+                      onPress={() => select(item.id)}
+                      style={themed($item)}
+                    >
+                      <View style={themed([$itemIcon, selected && $selectedIcon])}>
+                        <MaterialCommunityIcons
+                          name={item.icon ?? "wallet-outline"}
+                          size={20}
+                          style={themed($icon)}
+                        />
+                      </View>
+                      <View style={themed($itemText)}>
+                        <Text text={item.title} style={themed($itemTitle)} />
+                        {!!item.subtitle && <Text text={item.subtitle} style={themed($subtitle)} />}
+                      </View>
+                      {selected && (
+                        <MaterialCommunityIcons
+                          name="check-circle"
+                          size={22}
+                          style={themed($check)}
+                        />
+                      )}
+                    </Pressable>
+                  )
+                }}
+              />
+            </View>
           </View>
-          <TextField
-            value={search}
-            onChangeText={setSearch}
-            placeholder={`Search ${title.toLowerCase()}...`}
-            autoCapitalize="none"
-            inputWrapperStyle={themed($search)}
-          />
-          <FlatList
-            data={filteredItems}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={themed($list)}
-            ListEmptyComponent={<Text text="No matches found." style={themed($empty)} />}
-            renderItem={({ item }) => {
-              const selected = selectedIds.includes(item.id)
-              return (
-                <Pressable
-                  accessibilityRole={multiple ? "checkbox" : "radio"}
-                  accessibilityState={{ selected, checked: selected }}
-                  onPress={() => select(item.id)}
-                  style={themed($item)}
-                >
-                  <View style={themed([$itemIcon, selected && $selectedIcon])}>
-                    <MaterialCommunityIcons
-                      name={item.icon ?? "wallet-outline"}
-                      size={20}
-                      style={themed($icon)}
-                    />
-                  </View>
-                  <View style={themed($itemText)}>
-                    <Text text={item.title} style={themed($itemTitle)} />
-                    {!!item.subtitle && <Text text={item.subtitle} style={themed($subtitle)} />}
-                  </View>
-                  {selected && (
-                    <MaterialCommunityIcons name="check-circle" size={22} style={themed($check)} />
-                  )}
-                </Pressable>
-              )
-            }}
-          />
         </View>
       </View>
     </Modal>
@@ -131,12 +147,20 @@ const $overlay: ThemedStyle<ViewStyle> = ({ colors }) => ({
   justifyContent: "flex-end",
 })
 
-const $dismissArea: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
+const $dismissArea: ThemedStyle<ViewStyle> = () => ({
+  ...StyleSheet.absoluteFillObject,
+})
+
+const $keyboardInset: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+  justifyContent: "flex-end",
+})
 
 const $sheet: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.surfaceContainer,
   borderTopLeftRadius: 28,
   borderTopRightRadius: 28,
+  flexShrink: 1,
   maxHeight: "72%",
   minHeight: "48%",
   paddingHorizontal: spacing.md,
@@ -169,9 +193,23 @@ const $icon: ThemedStyle<TextStyle> = ({ colors }) => ({ color: colors.text })
 
 const $search: ThemedStyle<ViewStyle> = () => ({ minHeight: 44 })
 
+const $results: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+  minHeight: 0,
+})
+
+const $resultsList: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
+
 const $list: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexGrow: 1,
   paddingBottom: spacing.xl,
   paddingTop: spacing.xs,
+})
+
+const $emptyList: ThemedStyle<ViewStyle> = () => ({
+  justifyContent: "center",
 })
 
 const $item: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
