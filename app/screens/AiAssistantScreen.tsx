@@ -9,10 +9,39 @@ import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
 import { useMoneyAgent } from "@/context/MoneyAgentContext"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
+import type { MoneyAgentTransactionDraft } from "@/services/ai/types"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
 type AiAssistantScreenProps = MainTabScreenProps<"AiAssistant">
+type DraftStatusTone = "pending" | "confirming" | "confirmed" | "discarded" | "failed"
+
+function getDraftStatusPresentation(draft: MoneyAgentTransactionDraft): {
+  label: string
+  icon: ComponentProps<typeof MaterialCommunityIcons>["name"]
+  tone: DraftStatusTone
+} {
+  if (draft.status === "confirming") {
+    return { label: "Confirming", icon: "loading", tone: "confirming" }
+  }
+  if (draft.status === "confirmed") {
+    return { label: "Confirmed", icon: "check-circle", tone: "confirmed" }
+  }
+  if (draft.status === "discarded") {
+    return { label: "Discarded", icon: "close-circle", tone: "discarded" }
+  }
+  if (draft.status === "failed") {
+    return { label: "Failed", icon: "alert-circle", tone: "failed" }
+  }
+  if (draft.missingFields.length > 0) {
+    return { label: "Needs details", icon: "alert-circle-outline", tone: "pending" }
+  }
+  return { label: "Pending confirmation", icon: "clock-outline", tone: "pending" }
+}
+
+function isResolvedDraft(draft: MoneyAgentTransactionDraft) {
+  return draft.status === "confirmed" || draft.status === "discarded"
+}
 
 export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) => {
   const {
@@ -328,15 +357,44 @@ function MoneyAgentDraftCard({
   } = useAppTheme()
   const { drafts, updateDraft, confirmDraft, discardDraft } = useMoneyAgent()
   const draft = drafts.find((item) => item.id === draftId)
-  const [isExpanded, setIsExpanded] = useState(initiallyExpanded)
+  const [isExpanded, setIsExpanded] = useState(
+    initiallyExpanded && !!draft && !isResolvedDraft(draft),
+  )
   const [editing, setEditing] = useState(false)
   const [selector, setSelector] = useState<"source" | "destination" | "category" | "budget" | null>(
     null,
   )
   const [localDraft, setLocalDraft] = useState<typeof draft>(undefined)
+  const previousStatus = useRef(draft?.status)
+
+  useEffect(() => {
+    if (!draft) return
+    const enteredResolvedState =
+      (draft.status === "confirmed" || draft.status === "discarded") &&
+      previousStatus.current !== draft.status
+
+    if (enteredResolvedState) {
+      setIsExpanded(false)
+      setEditing(false)
+      setLocalDraft(undefined)
+      setSelector(null)
+    }
+    previousStatus.current = draft.status
+  }, [draft])
 
   if (!draft) return null
   const currentDraft = localDraft ?? draft
+  const statusPresentation = getDraftStatusPresentation(currentDraft)
+  const statusColor =
+    statusPresentation.tone === "pending"
+      ? colors.palette.accent300
+      : statusPresentation.tone === "confirming"
+        ? colors.palette.secondary300
+        : statusPresentation.tone === "confirmed"
+          ? colors.palette.primary300
+          : statusPresentation.tone === "failed"
+            ? colors.palette.angry500
+            : colors.palette.neutral400
 
   const resolveName = (collection: { id: string; name: string }[], id: string | null) =>
     collection.find((item) => item.id === id)?.name ?? "Not selected"
@@ -372,13 +430,25 @@ function MoneyAgentDraftCard({
   }
 
   return (
-    <FinanceCard style={themed([$draftCard, currentDraft.status === "failed" && $draftCardFailed])}>
+    <FinanceCard
+      style={themed([
+        $draftCard,
+        $draftCardTone[statusPresentation.tone],
+        isResolvedDraft(currentDraft) && $draftCardResolved,
+      ])}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${isExpanded ? "Collapse" : "Expand"} transaction draft`}
         accessibilityState={{ expanded: isExpanded }}
         onPress={toggleExpanded}
-        style={({ pressed }) => themed([$draftHeader, pressed && $draftHeaderPressed])}
+        style={({ pressed }) =>
+          themed([
+            $draftHeader,
+            $draftHeaderTone[statusPresentation.tone],
+            pressed && $draftHeaderPressed,
+          ])
+        }
       >
         <View style={themed($draftTitleRow)}>
           <View style={themed($draftIcon)}>
@@ -387,16 +457,15 @@ function MoneyAgentDraftCard({
           <Text text="TRANSACTION DRAFT" style={themed($draftEyebrow)} />
         </View>
         <View style={themed($draftHeaderSummary)}>
-          <View style={themed($draftReadiness)}>
-            <View
-              style={themed([
-                $readinessDot,
-                currentDraft.missingFields.length > 0 && $readinessDotWarning,
-              ])}
-            />
+          <View
+            accessibilityLabel={`Transaction status: ${statusPresentation.label}`}
+            testID={`draft-status-${currentDraft.id}`}
+            style={themed([$draftStatusBadge, $draftStatusBadgeTone[statusPresentation.tone]])}
+          >
+            <MaterialCommunityIcons name={statusPresentation.icon} size={14} color={statusColor} />
             <Text
-              text={currentDraft.missingFields.length > 0 ? "Needs details" : currentDraft.status}
-              style={themed($draftStatus)}
+              text={statusPresentation.label}
+              style={themed([$draftStatus, $draftStatusTextTone[statusPresentation.tone]])}
             />
           </View>
           <MaterialCommunityIcons
@@ -538,7 +607,11 @@ function MoneyAgentDraftCard({
               icon={editing ? "content-save-outline" : "pencil-outline"}
               label={editing ? "Save" : "Edit"}
               position="first"
-              disabled={currentDraft.status === "confirming" || currentDraft.status === "confirmed"}
+              disabled={
+                currentDraft.status === "confirming" ||
+                currentDraft.status === "confirmed" ||
+                currentDraft.status === "discarded"
+              }
               onPress={() => {
                 if (editing) {
                   updateDraft(currentDraft)
@@ -979,20 +1052,28 @@ const $error: ThemedStyle<TextStyle> = ({ colors }) => ({
 
 const $draftCard: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.surfaceContainer,
-  borderColor: colors.tint,
+  borderColor: colors.palette.accent300,
   borderRadius: 28,
   borderWidth: 1.5,
   overflow: "hidden",
   padding: spacing.lg,
 })
 
-const $draftCardFailed: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  borderColor: colors.error,
+const $draftCardTone: Record<DraftStatusTone, ThemedStyle<ViewStyle>> = {
+  pending: ({ colors }) => ({ borderColor: colors.palette.accent300 }),
+  confirming: ({ colors }) => ({ borderColor: colors.palette.secondary300 }),
+  confirmed: ({ colors }) => ({ borderColor: colors.palette.primary300 }),
+  discarded: ({ colors }) => ({ borderColor: colors.palette.neutral500 }),
+  failed: ({ colors }) => ({ borderColor: colors.palette.angry500 }),
+}
+
+const $draftCardResolved: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.84,
 })
 
 const $draftHeader: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
-  backgroundColor: "#143425",
+  backgroundColor: colors.palette.surfaceContainerHigh,
   borderBottomColor: colors.palette.stroke,
   borderBottomWidth: 1,
   flexDirection: "row",
@@ -1002,6 +1083,14 @@ const $draftHeader: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   marginTop: -spacing.lg,
   padding: spacing.md,
 })
+
+const $draftHeaderTone: Record<DraftStatusTone, ThemedStyle<ViewStyle>> = {
+  pending: () => ({ backgroundColor: "rgba(246, 207, 98, 0.10)" }),
+  confirming: () => ({ backgroundColor: "rgba(99, 181, 214, 0.12)" }),
+  confirmed: () => ({ backgroundColor: "rgba(62, 165, 118, 0.13)" }),
+  discarded: () => ({ backgroundColor: "rgba(131, 125, 117, 0.10)" }),
+  failed: () => ({ backgroundColor: "rgba(216, 113, 98, 0.12)" }),
+}
 
 const $draftHeaderPressed: ThemedStyle<ViewStyle> = () => ({
   opacity: 0.78,
@@ -1045,25 +1134,32 @@ const $draftStatus: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
   fontFamily: typography.primary.medium,
   fontSize: 12,
-  textTransform: "capitalize",
 })
 
-const $draftReadiness: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+const $draftStatusBadge: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
+  borderRadius: 999,
   flexDirection: "row",
   gap: spacing.xs,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xxs,
 })
 
-const $readinessDot: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.tint,
-  borderRadius: 4,
-  height: 7,
-  width: 7,
-})
+const $draftStatusBadgeTone: Record<DraftStatusTone, ThemedStyle<ViewStyle>> = {
+  pending: () => ({ backgroundColor: "rgba(246, 207, 98, 0.14)" }),
+  confirming: () => ({ backgroundColor: "rgba(99, 181, 214, 0.16)" }),
+  confirmed: () => ({ backgroundColor: "rgba(62, 165, 118, 0.18)" }),
+  discarded: () => ({ backgroundColor: "rgba(131, 125, 117, 0.16)" }),
+  failed: () => ({ backgroundColor: "rgba(216, 113, 98, 0.16)" }),
+}
 
-const $readinessDotWarning: ThemedStyle<ViewStyle> = ({ colors }) => ({
-  backgroundColor: colors.palette.accent300,
-})
+const $draftStatusTextTone: Record<DraftStatusTone, ThemedStyle<TextStyle>> = {
+  pending: ({ colors }) => ({ color: colors.palette.accent300 }),
+  confirming: ({ colors }) => ({ color: colors.palette.secondary300 }),
+  confirmed: ({ colors }) => ({ color: colors.palette.primary300 }),
+  discarded: ({ colors }) => ({ color: colors.palette.neutral400 }),
+  failed: ({ colors }) => ({ color: colors.palette.angry500 }),
+}
 
 const $amountRow: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",

@@ -64,8 +64,46 @@ const navigation = {
   navigate: jest.fn(),
 } as never
 
+function renderScreen() {
+  return render(
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 375, height: 812 },
+        insets: { top: 44, left: 0, right: 0, bottom: 34 },
+      }}
+    >
+      <ThemeProvider initialContext="dark">
+        <AiAssistantScreen navigation={navigation} route={{} as never} />
+      </ThemeProvider>
+    </SafeAreaProvider>,
+  )
+}
+
+function createDraft(
+  id: string,
+  status: MoneyAgentTransactionDraft["status"] = "proposed",
+): MoneyAgentTransactionDraft {
+  return {
+    id,
+    type: "withdrawal",
+    amount: "450",
+    currencyCode: "BDT",
+    date: "2026-06-07",
+    description: `Description ${id}`,
+    sourceAccountId: "account-1",
+    destinationAccountId: "expense-1",
+    categoryId: null,
+    budgetId: null,
+    tagIds: [],
+    notes: null,
+    missingFields: [],
+    status,
+  }
+}
+
 describe("AiAssistantScreen", () => {
   afterEach(() => {
+    jest.clearAllMocks()
     mockMoneyAgentValue.items = mockMoneyAgentValue.items.filter((item) => item.kind === "message")
     mockMoneyAgentValue.drafts = []
     mockMoneyAgentValue.snapshot.accounts = []
@@ -221,5 +259,104 @@ describe("AiAssistantScreen", () => {
     expect(mockMoneyAgentValue.discardDraft).toHaveBeenCalledWith("draft-2")
     fireEvent.press(getAllByText("Confirm")[0])
     expect(mockMoneyAgentValue.confirmDraft).toHaveBeenCalledWith("draft-1")
+  })
+
+  it("renders distinct accessible badges for every draft state", () => {
+    const draftIds = ["pending", "needs-details", "confirming", "confirmed", "discarded", "failed"]
+    mockMoneyAgentValue.items.push({
+      id: "status-group",
+      kind: "draft-group",
+      groupId: "status-group",
+      draftIds,
+      sourceMessageId: "message-1",
+      createdAt: "2026-06-07T12:01:00.000Z",
+    })
+    mockMoneyAgentValue.drafts.push(
+      createDraft("pending"),
+      { ...createDraft("needs-details"), missingFields: ["amount"] },
+      createDraft("confirming", "confirming"),
+      { ...createDraft("confirmed", "confirmed"), missingFields: ["amount"] },
+      createDraft("discarded", "discarded"),
+      createDraft("failed", "failed"),
+    )
+
+    const { getByLabelText, getByTestId } = renderScreen()
+
+    const expectedIcons = {
+      "Pending confirmation": "clock-outline",
+      "Needs details": "alert-circle-outline",
+      "Confirming": "loading",
+      "Confirmed": "check-circle",
+      "Discarded": "close-circle",
+      "Failed": "alert-circle",
+    }
+    Object.entries(expectedIcons).forEach(([label, icon]) => {
+      expect(
+        getByLabelText(`Transaction status: ${label}`).findByProps({ name: icon }),
+      ).toBeTruthy()
+    })
+    expect(getByTestId("draft-status-pending")).toHaveStyle({
+      backgroundColor: "rgba(246, 207, 98, 0.14)",
+    })
+    expect(getByTestId("draft-status-confirmed")).toHaveStyle({
+      backgroundColor: "rgba(62, 165, 118, 0.18)",
+    })
+  })
+
+  it("starts persisted resolved drafts collapsed and allows expanding them", () => {
+    mockMoneyAgentValue.items.push({
+      id: "resolved-group",
+      kind: "draft-group",
+      groupId: "resolved-group",
+      draftIds: ["confirmed"],
+      sourceMessageId: "message-1",
+      createdAt: "2026-06-07T12:01:00.000Z",
+    })
+    mockMoneyAgentValue.drafts.push(createDraft("confirmed", "confirmed"))
+
+    const { getByLabelText, getByText, queryByText } = renderScreen()
+
+    expect(queryByText("Description confirmed")).toBeNull()
+    fireEvent.press(getByLabelText("Expand transaction draft"))
+    expect(getByText("Description confirmed")).toBeTruthy()
+  })
+
+  it("auto-collapses only the draft that becomes resolved", () => {
+    mockMoneyAgentValue.items.push({
+      id: "transition-group",
+      kind: "draft-group",
+      groupId: "transition-group",
+      draftIds: ["draft-1", "draft-2"],
+      sourceMessageId: "message-1",
+      createdAt: "2026-06-07T12:01:00.000Z",
+    })
+    mockMoneyAgentValue.drafts.push(createDraft("draft-1"), createDraft("draft-2", "failed"))
+
+    const screen = renderScreen()
+    fireEvent.press(screen.getByLabelText("Expand transaction draft"))
+    expect(screen.getByText("Description draft-1")).toBeTruthy()
+    expect(screen.getByText("Description draft-2")).toBeTruthy()
+
+    mockMoneyAgentValue.drafts = [
+      createDraft("draft-1", "confirmed"),
+      createDraft("draft-2", "failed"),
+    ]
+    screen.rerender(
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 375, height: 812 },
+          insets: { top: 44, left: 0, right: 0, bottom: 34 },
+        }}
+      >
+        <ThemeProvider initialContext="dark">
+          <AiAssistantScreen navigation={navigation} route={{} as never} />
+        </ThemeProvider>
+      </SafeAreaProvider>,
+    )
+
+    expect(screen.queryByText("Description draft-1")).toBeNull()
+    expect(screen.getByText("Description draft-2")).toBeTruthy()
+    fireEvent.press(screen.getAllByLabelText("Expand transaction draft")[0])
+    expect(screen.getByText("Description draft-1")).toBeTruthy()
   })
 })
