@@ -68,7 +68,7 @@ buck-out/
 .vscode
 
 # Expo
-.expo/*
+.expo/
 .expo-shared/
 .metro-cache/
 bin/Exponent.app
