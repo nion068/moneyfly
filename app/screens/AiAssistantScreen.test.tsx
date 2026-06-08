@@ -111,10 +111,11 @@ function createDraft(
 describe("AiAssistantScreen", () => {
   afterEach(() => {
     jest.clearAllMocks()
-    mockMoneyAgentValue.items = mockMoneyAgentValue.items.filter((item) => item.kind === "message")
+    mockMoneyAgentValue.items = mockMoneyAgentValue.items.filter((item) => item.id === "item-1")
     mockMoneyAgentValue.drafts = []
     mockMoneyAgentValue.snapshot.accounts = []
     mockMoneyAgentValue.snapshot.categories = []
+    mockMoneyAgentValue.isSending = false
   })
 
   it("renders the complete chat layout without collapsing the conversation", () => {
@@ -138,6 +139,65 @@ describe("AiAssistantScreen", () => {
     expect(getByText("Shopping item")).toBeTruthy()
     expect(getByText("Describe a transaction and I will prepare a draft.")).toBeTruthy()
     expect(getByTestId("money-agent-conversation")).toHaveStyle({ flex: 1 })
+  })
+
+  it("resends only the latest user message", () => {
+    mockMoneyAgentValue.items.push(
+      {
+        id: "user-item-1",
+        kind: "message",
+        message: {
+          id: "user-message-1",
+          role: "user",
+          text: "Paid 450 for lunch",
+          createdAt: "2026-06-07T12:01:00.000Z",
+        },
+      },
+      {
+        id: "assistant-item-2",
+        kind: "message",
+        message: {
+          id: "assistant-message-2",
+          role: "assistant",
+          text: "Gemini is temporarily unavailable.",
+          createdAt: "2026-06-07T12:02:00.000Z",
+        },
+      },
+      {
+        id: "user-item-2",
+        kind: "message",
+        message: {
+          id: "user-message-2",
+          role: "user",
+          text: "Paid 120 for transport",
+          createdAt: "2026-06-07T12:03:00.000Z",
+        },
+      },
+    )
+
+    const screen = renderScreen()
+
+    expect(screen.getAllByLabelText("Resend last message")).toHaveLength(1)
+    fireEvent.press(screen.getByLabelText("Resend last message"))
+    expect(mockMoneyAgentValue.sendMessage).toHaveBeenCalledWith("Paid 120 for transport")
+  })
+
+  it("animates the thinking status", () => {
+    mockMoneyAgentValue.items.push({
+      id: "thinking-item",
+      kind: "message",
+      message: {
+        id: "thinking-message",
+        role: "status",
+        text: "Money Agent is thinking...",
+        createdAt: "2026-06-07T12:01:00.000Z",
+      },
+    })
+
+    const screen = renderScreen()
+
+    expect(screen.getByTestId("money-agent-thinking")).toBeTruthy()
+    expect(screen.getByLabelText("Money Agent is thinking...")).toBeTruthy()
   })
 
   it("collapses and expands a transaction draft while keeping its summary visible", () => {

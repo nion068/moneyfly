@@ -91,6 +91,10 @@ export const SetupScreen: FC<SetupScreenProps> = () => {
           disabled={!canSubmit || isTestingConnection}
           onPress={connect}
           style={themed($primaryButton)}
+          pressedStyle={themed($primaryButtonPressed)}
+          disabledStyle={themed($primaryButtonDisabled)}
+          textStyle={themed($primaryButtonText)}
+          disabledTextStyle={themed($primaryButtonTextDisabled)}
         />
       </FinanceCard>
     </Screen>
@@ -143,7 +147,26 @@ const $error: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   marginBottom: spacing.md,
 })
 
-const $primaryButton: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+const $primaryButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.tint,
   borderRadius: 18,
   marginTop: spacing.xs,
+})
+
+const $primaryButtonPressed: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.primary600,
+})
+
+const $primaryButtonDisabled: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.tint,
+  opacity: 0.45,
+})
+
+const $primaryButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.semiBold,
+})
+
+const $primaryButtonTextDisabled: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.surfaceDim,
 })

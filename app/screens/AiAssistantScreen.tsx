@@ -1,5 +1,14 @@
 import { ComponentProps, FC, useEffect, useMemo, useRef, useState } from "react"
-import { Alert, Pressable, ScrollView, View, ViewStyle, TextStyle } from "react-native"
+import {
+  Alert,
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  TextStyle,
+  View,
+  ViewStyle,
+} from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 
 import { FinanceCard } from "@/components/firefly/FinancePrimitives"
@@ -85,6 +94,13 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
     () => drafts.filter((draft) => draft.status !== "confirmed" && draft.status !== "discarded"),
     [drafts],
   )
+  const latestUserMessageId = useMemo(() => {
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const item = items[index]
+      if (item.kind === "message" && item.message.role === "user") return item.message.id
+    }
+    return undefined
+  }, [items])
 
   const onClearChat = () => {
     if (unresolvedDrafts.length > 0) {
@@ -210,6 +226,9 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 role={item.message.role}
                 text={item.message.text}
                 createdAt={item.message.createdAt}
+                canResend={item.message.id === latestUserMessageId}
+                isResending={isSending}
+                onResend={() => void sendMessage(item.message.text)}
               />
             ) : item.kind === "draft-group" ? (
               <MoneyAgentDraftGroup
@@ -321,10 +340,16 @@ function MessageBubble({
   role,
   text,
   createdAt,
+  canResend,
+  isResending,
+  onResend,
 }: {
   role: "user" | "assistant" | "status"
   text: string
   createdAt: string
+  canResend: boolean
+  isResending: boolean
+  onResend: () => void
 }) {
   const {
     themed,
@@ -345,11 +370,62 @@ function MessageBubble({
             <MaterialCommunityIcons name="creation" size={17} color={colors.palette.surfaceDim} />
           </View>
         )}
+        {isUser && canResend ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Resend last message"
+            disabled={isResending}
+            onPress={onResend}
+            style={themed([$resendButton, isResending && $resendButtonDisabled])}
+          >
+            <MaterialCommunityIcons name="replay" size={18} color={colors.textDim} />
+          </Pressable>
+        ) : null}
         <View style={themed([$bubble, isUser && $bubbleUser, isStatus && $bubbleStatus])}>
-          <Text text={text} style={themed([$bubbleText, isUser && $bubbleTextUser])} />
+          {isStatus ? (
+            <ThinkingMessage text={text} />
+          ) : (
+            <Text text={text} style={themed([$bubbleText, isUser && $bubbleTextUser])} />
+          )}
         </View>
       </View>
       <Text text={timestamp} style={themed([$timestamp, isUser && $timestampRight])} />
+    </View>
+  )
+}
+
+function ThinkingMessage({ text }: { text: string }) {
+  const { themed } = useAppTheme()
+  const progress = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    )
+    animation.start()
+    return () => animation.stop()
+  }, [progress])
+
+  const dotOpacity = (offset: number) =>
+    progress.interpolate({
+      inputRange: [0, offset, offset + 0.16, offset + 0.32, 1],
+      outputRange: [0.3, 0.3, 1, 0.3, 0.3],
+    })
+
+  return (
+    <View accessibilityLabel={text} testID="money-agent-thinking" style={themed($thinkingRow)}>
+      <Text text={text.replace(/\.{3}$/, "")} style={themed($bubbleText)} />
+      {[0.01, 0.23, 0.45].map((offset) => (
+        <Animated.View
+          key={offset}
+          style={[themed($thinkingDot), { opacity: dotOpacity(offset) }]}
+        />
+      ))}
     </View>
   )
 }
@@ -1093,6 +1169,21 @@ const $bubbleRowRight: ThemedStyle<ViewStyle> = () => ({
   justifyContent: "flex-end",
 })
 
+const $resendButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  alignItems: "center",
+  alignSelf: "center",
+  borderColor: colors.palette.stroke,
+  borderRadius: 16,
+  borderWidth: 1,
+  height: 32,
+  justifyContent: "center",
+  width: 32,
+})
+
+const $resendButtonDisabled: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.4,
+})
+
 const $bubbleAvatar: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.primary500,
@@ -1122,6 +1213,20 @@ const $bubbleUser: ThemedStyle<ViewStyle> = ({ colors }) => ({
 
 const $bubbleStatus: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.surfaceContainerHigh,
+})
+
+const $thinkingRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.xxs,
+})
+
+const $thinkingDot: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.textDim,
+  borderRadius: 3,
+  height: 6,
+  transform: [{ translateY: 4 }],
+  width: 6,
 })
 
 const $bubbleText: ThemedStyle<TextStyle> = ({ colors }) => ({
