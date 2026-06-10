@@ -11,7 +11,7 @@ import {
 } from "@/components/settings/SettingsPrimitives"
 import { Text } from "@/components/Text"
 import { Switch } from "@/components/Toggle/Switch"
-import { useSecurity } from "@/context/SecurityContext"
+import { BIOMETRIC_AUTHENTICATION_ENABLED, useSecurity } from "@/context/SecurityContext"
 import type { SettingsStackScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -31,14 +31,16 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
     error,
     setBiometricEnabled,
   } = useSecurity()
-  const available = biometricSupported && biometricEnrolled
-  const status = isChecking
-    ? "Checking device"
-    : biometricEnabled
-      ? "Biometric enabled"
-      : available
-        ? "Biometric available"
-        : "Biometric unavailable"
+  const available = BIOMETRIC_AUTHENTICATION_ENABLED && biometricSupported && biometricEnrolled
+  const status = !BIOMETRIC_AUTHENTICATION_ENABLED
+    ? "Temporarily unavailable"
+    : isChecking
+      ? "Checking device"
+      : biometricEnabled
+        ? "Biometric enabled"
+        : available
+          ? "Biometric available"
+          : "Biometric unavailable"
 
   return (
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
@@ -54,7 +56,11 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
         </View>
         <Text text="Biometric Authentication" style={themed($title)} />
         <Text
-          text="Use Face ID or fingerprint to unlock Moneyfly after it leaves the foreground."
+          text={
+            BIOMETRIC_AUTHENTICATION_ENABLED
+              ? "Use Face ID or fingerprint to unlock Moneyfly after it leaves the foreground."
+              : "Biometric unlock is temporarily disabled while the authentication flow is being fixed."
+          }
           style={themed($body)}
         />
       </View>
@@ -64,9 +70,11 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
           first
           title="Biometric Unlock"
           subtitle={
-            available
-              ? "Face ID / Fingerprint"
-              : "Requires supported hardware and an enrolled biometric"
+            !BIOMETRIC_AUTHENTICATION_ENABLED
+              ? "Temporarily unavailable"
+              : available
+                ? "Face ID / Fingerprint"
+                : "Requires supported hardware and an enrolled biometric"
           }
           icon="fingerprint"
           tone="blue"
@@ -74,7 +82,7 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
           trailing={
             <Switch
               value={biometricEnabled}
-              disabled={isChecking || !available}
+              disabled={!BIOMETRIC_AUTHENTICATION_ENABLED || isChecking || !available}
               onValueChange={(value) => void setBiometricEnabled(value)}
             />
           }
@@ -86,7 +94,7 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
       <SettingsCard style={themed($notice)}>
         <SettingsIcon name="information-outline" />
         <Text
-          text="Authentication is performed by your device. Moneyfly never receives or stores biometric data."
+          text="Biometric locking is currently disabled. Moneyfly will not request biometric authentication."
           style={themed($noticeText)}
         />
       </SettingsCard>

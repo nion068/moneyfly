@@ -102,7 +102,7 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
         />
         <SettingsSummaryCard
           title="Security"
-          subtitle="Configure biometric unlock"
+          subtitle="Biometric unlock temporarily unavailable"
           icon="fingerprint"
           tone="blue"
           onPress={() => navigation.navigate("SettingsSecurity")}

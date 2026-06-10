@@ -26,17 +26,29 @@ type SecurityContextType = {
 }
 
 const SecurityContext = createContext<SecurityContextType | null>(null)
+export const BIOMETRIC_AUTHENTICATION_ENABLED = false
 
 export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
   const [storedEnabled, setStoredEnabled] = useMMKVString("Security.biometricEnabled", storage)
   const [biometricSupported, setBiometricSupported] = useState(false)
   const [biometricEnrolled, setBiometricEnrolled] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
-  const [isLocked, setIsLocked] = useState(storedEnabled === "true")
+  const [isLocked, setIsLocked] = useState(
+    BIOMETRIC_AUTHENTICATION_ENABLED && storedEnabled === "true",
+  )
   const [error, setError] = useState<string>()
-  const biometricEnabled = storedEnabled === "true"
+  const biometricEnabled = BIOMETRIC_AUTHENTICATION_ENABLED && storedEnabled === "true"
 
   useEffect(() => {
+    if (!BIOMETRIC_AUTHENTICATION_ENABLED) {
+      setStoredEnabled("false")
+      setBiometricSupported(false)
+      setBiometricEnrolled(false)
+      setIsLocked(false)
+      setIsChecking(false)
+      return
+    }
+
     let active = true
     void (async () => {
       if (Platform.OS === "web") {
@@ -55,10 +67,14 @@ export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
     return () => {
       active = false
     }
-  }, [])
+  }, [setStoredEnabled])
 
   const authenticate = useCallback(async () => {
     setError(undefined)
+    if (!BIOMETRIC_AUTHENTICATION_ENABLED) {
+      setError("Biometric authentication is temporarily unavailable.")
+      return false
+    }
     if (!biometricSupported || !biometricEnrolled) {
       setError("Biometric authentication is not available or enrolled on this device.")
       return false
@@ -83,6 +99,12 @@ export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
 
   const setBiometricEnabled = useCallback(
     async (enabled: boolean) => {
+      if (!BIOMETRIC_AUTHENTICATION_ENABLED) {
+        setStoredEnabled("false")
+        setIsLocked(false)
+        if (enabled) setError("Biometric authentication is temporarily unavailable.")
+        return !enabled
+      }
       if (enabled === biometricEnabled) return true
       const ok = await authenticate()
       if (!ok) return false

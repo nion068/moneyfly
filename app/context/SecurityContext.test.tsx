@@ -34,7 +34,7 @@ describe("SecurityProvider", () => {
     ;(LocalAuthentication.authenticateAsync as jest.Mock).mockResolvedValue({ success: true })
   })
 
-  it("enables biometric locking only after successful authentication", async () => {
+  it("keeps biometric locking disabled without checking device hardware", async () => {
     render(
       <SecurityProvider>
         <ContextProbe />
@@ -42,22 +42,15 @@ describe("SecurityProvider", () => {
     )
 
     await waitFor(() => expect(latestContext.isChecking).toBe(false))
-    expect(latestContext.biometricSupported).toBe(true)
-    expect(latestContext.biometricEnrolled).toBe(true)
-
-    await act(async () => {
-      await latestContext.setBiometricEnabled(true)
-    })
-
-    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1)
-    expect(latestContext.biometricEnabled).toBe(true)
+    expect(latestContext.biometricSupported).toBe(false)
+    expect(latestContext.biometricEnrolled).toBe(false)
+    expect(latestContext.biometricEnabled).toBe(false)
+    expect(latestContext.isLocked).toBe(false)
+    expect(LocalAuthentication.hasHardwareAsync).not.toHaveBeenCalled()
+    expect(LocalAuthentication.isEnrolledAsync).not.toHaveBeenCalled()
   })
 
-  it("keeps biometric locking disabled when authentication fails", async () => {
-    ;(LocalAuthentication.authenticateAsync as jest.Mock).mockResolvedValueOnce({
-      success: false,
-      error: "user_cancel",
-    })
+  it("does not allow biometric locking to be enabled", async () => {
     render(
       <SecurityProvider>
         <ContextProbe />
@@ -65,11 +58,15 @@ describe("SecurityProvider", () => {
     )
 
     await waitFor(() => expect(latestContext.isChecking).toBe(false))
+    let enabled = true
     await act(async () => {
-      await latestContext.setBiometricEnabled(true)
+      enabled = await latestContext.setBiometricEnabled(true)
     })
 
+    expect(enabled).toBe(false)
     expect(latestContext.biometricEnabled).toBe(false)
-    expect(latestContext.error).toBeTruthy()
+    expect(latestContext.isLocked).toBe(false)
+    expect(latestContext.error).toBe("Biometric authentication is temporarily unavailable.")
+    expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled()
   })
 })
