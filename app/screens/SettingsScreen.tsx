@@ -139,8 +139,8 @@ const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 40,
-  lineHeight: 48,
+  fontSize: 32,
+  lineHeight: 38,
 })
 const $profileCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",

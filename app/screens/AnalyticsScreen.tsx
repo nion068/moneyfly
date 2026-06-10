@@ -174,7 +174,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
         >
           {/* Header */}
           <View style={themed($header)}>
-            <View>
+            <View style={themed($headerCopy)}>
               <Text text="Analytics" style={themed($title)} />
               <Text text={rangeLabel} style={themed($muted)} />
             </View>
@@ -182,9 +182,13 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
               accessibilityRole="button"
               accessibilityLabel="Open month picker"
               onPress={() => setShowYears(true)}
-              style={themed($calendarButton)}
+              style={({ pressed }) => themed([$calendarButton, pressed && $calendarButtonPressed])}
             >
-              <Text text="▣" style={themed($calendarIcon)} />
+              <MaterialCommunityIcons
+                name="calendar-month-outline"
+                size={23}
+                style={themed($calendarIcon)}
+              />
             </Pressable>
           </View>
 
@@ -684,33 +688,41 @@ const $header: ThemedStyle<ViewStyle> = () => ({
   justifyContent: "space-between",
 })
 
+const $headerCopy: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flex: 1,
+  gap: spacing.xxxs,
+})
+
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 40,
-  lineHeight: 48,
+  fontSize: 32,
+  lineHeight: 38,
 })
 
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 13,
+  fontSize: 14,
+  lineHeight: 20,
 })
 
-const $calendarButton: ThemedStyle<ViewStyle> = () => ({
+const $calendarButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
+  borderRadius: 16,
+  borderWidth: 1,
+  height: 44,
   justifyContent: "center",
+  width: 44,
+})
+
+const $calendarButtonPressed: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHigh,
 })
 
 const $calendarIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
-  backgroundColor: colors.palette.surfaceContainer,
-  borderRadius: 22,
-  color: colors.textDim,
-  fontSize: 22,
-  height: 44,
-  lineHeight: 44,
-  overflow: "hidden",
-  textAlign: "center",
-  width: 44,
+  color: colors.tint,
 })
 
 const $periods: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
