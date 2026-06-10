@@ -1,8 +1,16 @@
 import { ReactNode } from "react"
-import { Modal, Pressable, TextStyle, View, ViewStyle } from "react-native"
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  TextStyle,
+  View,
+  ViewStyle,
+} from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { KeyboardAvoidingView } from "react-native-keyboard-controller"
 
-import { Button } from "@/components/Button"
 import { Text } from "@/components/Text"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -32,27 +40,53 @@ export function SettingsEditorModal({
   } = useAppTheme()
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <View style={themed($overlay)}>
-        <View style={themed($sheet)}>
-          <View style={themed($header)}>
-            <Text text={title} style={themed($title)} />
-            <Pressable accessibilityLabel="Close" onPress={onClose} style={themed($close)}>
-              <MaterialCommunityIcons name="close" color={colors.text} size={24} />
+      <KeyboardAvoidingView behavior="padding" style={themed($keyboardView)}>
+        <View style={themed($overlay)}>
+          <View style={themed($sheet)}>
+            <View style={themed($header)}>
+              <Text text={title} style={themed($title)} />
+              <Pressable accessibilityLabel="Close" onPress={onClose} style={themed($close)}>
+                <MaterialCommunityIcons name="close" color={colors.text} size={24} />
+              </Pressable>
+            </View>
+            <ScrollView
+              contentContainerStyle={themed($body)}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={themed($bodyScroll)}
+            >
+              {children}
+            </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: saving, disabled: saving || !canSave }}
+              disabled={saving || !canSave}
+              onPress={onSave}
+              style={({ pressed }) =>
+                themed([
+                  $saveButton,
+                  pressed && $saveButtonPressed,
+                  (saving || !canSave) && $saveButtonDisabled,
+                ])
+              }
+            >
+              {saving ? (
+                <ActivityIndicator color={colors.palette.surfaceDim} size="small" />
+              ) : (
+                <MaterialCommunityIcons name="check" color={colors.palette.surfaceDim} size={20} />
+              )}
+              <Text text={saving ? "Saving..." : saveLabel} style={themed($saveButtonText)} />
             </Pressable>
           </View>
-          <View style={themed($body)}>{children}</View>
-          <Button
-            text={saving ? "Saving..." : saveLabel}
-            preset="filled"
-            disabled={saving || !canSave}
-            onPress={onSave}
-          />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
 
+const $keyboardView: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
 const $overlay: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.overlay50,
   flex: 1,
@@ -65,6 +99,7 @@ const $sheet: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   borderTopRightRadius: 24,
   borderWidth: 1,
   gap: spacing.md,
+  maxHeight: "90%",
   padding: spacing.md,
   paddingBottom: spacing.xl,
 })
@@ -87,3 +122,27 @@ const $close: ThemedStyle<ViewStyle> = ({ colors }) => ({
   width: 40,
 })
 const $body: ThemedStyle<ViewStyle> = ({ spacing }) => ({ gap: spacing.sm })
+const $bodyScroll: ThemedStyle<ViewStyle> = () => ({
+  flexShrink: 1,
+})
+const $saveButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.tint,
+  borderRadius: 18,
+  flexDirection: "row",
+  gap: spacing.xs,
+  justifyContent: "center",
+  minHeight: 48,
+  paddingHorizontal: spacing.md,
+})
+const $saveButtonPressed: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.86,
+})
+const $saveButtonDisabled: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.45,
+})
+const $saveButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+})
