@@ -214,48 +214,48 @@ export const SettingsAiAssistantScreen: FC<Props> = ({ navigation }) => {
 }
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.lg,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxxl,
+  gap: spacing.md,
+  padding: spacing.md,
+  paddingBottom: 112,
 })
 const $hero: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
 })
 const $activeHero: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   backgroundColor: "rgba(18, 118, 77, 0.24)",
   borderColor: colors.tint,
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
 })
 const $heroCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $heroTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.semiBold,
-  fontSize: 21,
+  fontSize: 18,
 })
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 15,
-  lineHeight: 21,
+  fontSize: 13,
+  lineHeight: 18,
 })
 const $form: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.md,
-  paddingTop: spacing.lg,
+  gap: spacing.sm,
+  paddingTop: spacing.md,
 })
 const $error: ThemedStyle<TextStyle> = ({ colors }) => ({ color: colors.error })
 const $success: ThemedStyle<TextStyle> = ({ colors }) => ({ color: colors.tint })
 const $actionBase: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
-  borderRadius: 22,
+  borderRadius: 18,
   flexDirection: "row",
   gap: spacing.xs,
   justifyContent: "center",
-  minHeight: 52,
-  paddingHorizontal: spacing.lg,
-  paddingVertical: spacing.sm,
+  minHeight: 48,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.xs,
 })
 const $primaryAction: ThemedStyle<ViewStyle> = (theme) => ({
   ...$actionBase(theme),
@@ -277,31 +277,31 @@ const $actionDisabled: ThemedStyle<ViewStyle> = () => ({ opacity: 0.42 })
 const $primaryActionText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.surfaceDim,
   fontFamily: typography.primary.semiBold,
-  fontSize: 16,
+  fontSize: 14,
 })
 const $secondaryActionText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.tint,
   fontFamily: typography.primary.semiBold,
-  fontSize: 16,
+  fontSize: 14,
 })
 const $dangerActionText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.tertiary300,
   fontFamily: typography.primary.semiBold,
-  fontSize: 16,
+  fontSize: 14,
 })
 const $eyebrow: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
   fontFamily: typography.primary.semiBold,
-  fontSize: 14,
+  fontSize: 12,
   letterSpacing: 2.2,
 })
 const $provider: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
 })
 const $rowTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.semiBold,
-  fontSize: 18,
+  fontSize: 16,
 })

@@ -107,14 +107,18 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
       </View>
 
       <Text text="DANGER ZONE" style={themed($eyebrow)} />
-      <SettingsCard disabled>
+      <SettingsCard disabled style={themed($dangerCard)}>
         <View style={themed($dangerRow)}>
-          <SettingsIcon name="logout" tone="danger" />
+          <View style={themed($dangerIcon)}>
+            <SettingsIcon name="logout" tone="danger" size={20} />
+          </View>
           <Text text="Sign Out" style={themed($dangerText)} />
         </View>
         <View style={themed($dangerDivider)} />
         <View style={themed($dangerRow)}>
-          <SettingsIcon name="trash-can-outline" tone="danger" />
+          <View style={themed($dangerIcon)}>
+            <SettingsIcon name="trash-can-outline" tone="danger" size={20} />
+          </View>
           <Text text="Clear Local Data" style={themed($dangerText)} />
         </View>
       </SettingsCard>
@@ -126,14 +130,14 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.md,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxxl,
+  padding: spacing.md,
+  paddingBottom: 112,
 })
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 42,
-  lineHeight: 50,
+  fontSize: 40,
+  lineHeight: 48,
 })
 const $profileCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
@@ -141,65 +145,73 @@ const $profileCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   borderColor: "rgba(62, 165, 118, 0.36)",
   flexDirection: "row",
   gap: spacing.md,
-  minHeight: 104,
-  paddingHorizontal: spacing.md,
-  paddingVertical: spacing.sm,
+  minHeight: 86,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
 })
 const $avatar: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.primary200,
-  borderRadius: 29,
-  height: 58,
+  borderRadius: 24,
+  height: 48,
   justifyContent: "center",
-  width: 58,
+  width: 48,
 })
 const $avatarText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.surfaceDim,
   fontFamily: typography.primary.bold,
-  fontSize: 20,
+  fontSize: 17,
 })
 const $profileCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $profileName: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.semiBold,
-  fontSize: 19,
-  lineHeight: 24,
+  fontSize: 17,
+  lineHeight: 22,
 })
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 15,
-  lineHeight: 22,
+  fontSize: 13,
+  lineHeight: 18,
 })
 const $positive: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.tint,
-  fontSize: 15,
-  lineHeight: 22,
+  fontSize: 13,
+  lineHeight: 18,
 })
 const $cards: ThemedStyle<ViewStyle> = ({ spacing }) => ({ gap: spacing.xs })
 const $eyebrow: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
   fontFamily: typography.primary.semiBold,
-  fontSize: 14,
+  fontSize: 12,
   letterSpacing: 2.4,
   marginTop: 8,
+})
+const $dangerCard: ThemedStyle<ViewStyle> = () => ({
+  padding: 0,
 })
 const $dangerRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
+  minHeight: 60,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
 })
-const $dangerDivider: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+const $dangerIcon: ThemedStyle<ViewStyle> = () => ({
+  transform: [{ scale: 0.82 }],
+})
+const $dangerDivider: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.stroke,
   height: 1,
-  marginVertical: spacing.md,
 })
 const $dangerText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.tertiary300,
   fontFamily: typography.primary.medium,
-  fontSize: 19,
+  fontSize: 16,
 })
 const $version: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 14,
+  fontSize: 12,
   textAlign: "center",
 })

@@ -49,7 +49,7 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
           <MaterialCommunityIcons
             name="fingerprint"
             color={colors.palette.secondary300}
-            size={76}
+            size={54}
           />
         </View>
         <Text text="Biometric Authentication" style={themed($title)} />
@@ -95,33 +95,33 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
 }
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.xl,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxxl,
+  gap: spacing.md,
+  padding: spacing.md,
+  paddingBottom: 112,
 })
 const $hero: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
-  gap: spacing.md,
-  paddingVertical: spacing.xl,
+  gap: spacing.sm,
+  paddingVertical: spacing.md,
 })
 const $heroIcon: ThemedStyle<ViewStyle> = () => ({
   alignItems: "center",
   backgroundColor: "rgba(40, 90, 116, 0.56)",
-  borderRadius: 56,
-  height: 112,
+  borderRadius: 40,
+  height: 80,
   justifyContent: "center",
-  width: 112,
+  width: 80,
 })
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 28,
+  fontSize: 22,
   textAlign: "center",
 })
 const $body: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 17,
-  lineHeight: 26,
+  fontSize: 14,
+  lineHeight: 21,
   textAlign: "center",
 })
 const $error: ThemedStyle<TextStyle> = ({ colors }) => ({
@@ -131,11 +131,11 @@ const $error: ThemedStyle<TextStyle> = ({ colors }) => ({
 const $notice: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "flex-start",
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
 })
 const $noticeText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
   flex: 1,
-  fontSize: 15,
-  lineHeight: 23,
+  fontSize: 13,
+  lineHeight: 19,
 })

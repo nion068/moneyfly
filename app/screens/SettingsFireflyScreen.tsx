@@ -188,49 +188,49 @@ export const SettingsFireflyScreen: FC<Props> = ({ navigation }) => {
 }
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.lg,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxxl,
+  gap: spacing.md,
+  padding: spacing.md,
+  paddingBottom: 112,
 })
 const $connectionHero: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   backgroundColor: "rgba(18, 118, 77, 0.24)",
   borderColor: colors.tint,
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
 })
 const $connectionError: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   borderColor: colors.error,
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
 })
 const $heroCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $heroTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.semiBold,
-  fontSize: 23,
+  fontSize: 19,
 })
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 15,
-  lineHeight: 22,
+  fontSize: 13,
+  lineHeight: 19,
 })
 const $editor: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.md,
-  paddingTop: spacing.md,
+  gap: spacing.sm,
+  paddingTop: spacing.sm,
 })
 const $error: ThemedStyle<TextStyle> = ({ colors }) => ({ color: colors.error })
 const $saveConnection: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   backgroundColor: colors.tint,
-  borderRadius: 22,
+  borderRadius: 18,
   flexDirection: "row",
   gap: spacing.xs,
   justifyContent: "center",
-  minHeight: 52,
-  paddingHorizontal: spacing.lg,
-  paddingVertical: spacing.sm,
+  minHeight: 48,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.xs,
 })
 const $saveConnectionDisabled: ThemedStyle<ViewStyle> = () => ({
   opacity: 0.42,
@@ -238,17 +238,17 @@ const $saveConnectionDisabled: ThemedStyle<ViewStyle> = () => ({
 const $saveConnectionText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.surfaceDim,
   fontFamily: typography.primary.semiBold,
-  fontSize: 16,
-  lineHeight: 22,
+  fontSize: 14,
+  lineHeight: 20,
 })
 const $disconnect: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.surfaceContainer,
   borderColor: colors.palette.stroke,
-  borderRadius: 28,
+  borderRadius: 22,
   borderWidth: 1,
   flexDirection: "row",
-  gap: spacing.md,
+  gap: spacing.sm,
   paddingHorizontal: spacing.md,
   paddingVertical: spacing.sm,
 })
@@ -258,11 +258,11 @@ const $disconnectCopy: ThemedStyle<ViewStyle> = () => ({
 const $disconnectText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.tertiary300,
   fontFamily: typography.primary.semiBold,
-  fontSize: 17,
-  lineHeight: 23,
+  fontSize: 15,
+  lineHeight: 20,
 })
 const $disconnectDescription: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 14,
-  lineHeight: 20,
+  fontSize: 12,
+  lineHeight: 18,
 })

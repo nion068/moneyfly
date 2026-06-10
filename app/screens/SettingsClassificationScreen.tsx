@@ -235,9 +235,9 @@ function ClassificationRow({
 }
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.lg,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxxl,
+  gap: spacing.md,
+  padding: spacing.md,
+  paddingBottom: 112,
 })
 const $searchContainer: ThemedStyle<ViewStyle> = () => ({
   width: "100%",
@@ -246,15 +246,15 @@ const $searchInputWrapper: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.surfaceContainer,
   borderColor: colors.palette.stroke,
-  borderRadius: 22,
-  height: 54,
+  borderRadius: 18,
+  height: 48,
 })
 const $searchInput: ThemedStyle<TextStyle> = ({ colors }) => ({
   alignSelf: "center",
   color: colors.text,
-  fontSize: 16,
-  height: 54,
-  lineHeight: 22,
+  fontSize: 14,
+  height: 48,
+  lineHeight: 20,
   marginHorizontal: 0,
   marginVertical: 0,
   paddingVertical: 0,
@@ -277,15 +277,15 @@ const $sectionAdd: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 const $sectionAddText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.tint,
   fontFamily: typography.primary.semiBold,
-  fontSize: 14,
+  fontSize: 12,
 })
 const $row: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   borderTopColor: colors.palette.stroke,
   borderTopWidth: 1,
   flexDirection: "row",
-  minHeight: 70,
-  paddingVertical: spacing.sm,
+  minHeight: 58,
+  paddingVertical: spacing.xs,
 })
 const $firstRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   borderTopWidth: 0,
@@ -294,20 +294,20 @@ const $firstRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 const $rowText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.text,
   flex: 1,
-  fontSize: 17,
+  fontSize: 15,
 })
 const $edit: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.surfaceContainerHigh,
-  borderRadius: 21,
-  height: 42,
+  borderRadius: 18,
+  height: 36,
   justifyContent: "center",
-  width: 42,
+  width: 36,
 })
 const $tags: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   flexWrap: "wrap",
-  gap: spacing.sm,
+  gap: spacing.xs,
   paddingTop: spacing.md,
 })
 const $tag: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
@@ -317,16 +317,16 @@ const $tag: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   borderWidth: 1,
   flexDirection: "row",
   gap: spacing.xs,
-  paddingHorizontal: spacing.md,
-  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
 })
 const $tagText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.text,
-  fontSize: 16,
+  fontSize: 14,
 })
 const $empty: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   color: colors.textDim,
-  paddingTop: spacing.lg,
+  paddingTop: spacing.md,
   textAlign: "center",
 })
 const $help: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({

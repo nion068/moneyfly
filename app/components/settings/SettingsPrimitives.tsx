@@ -34,7 +34,7 @@ export function SettingsHeader({
           onPress={onBack}
           style={themed($backButton)}
         >
-          <MaterialCommunityIcons name="chevron-left" color={colors.text} size={30} />
+          <MaterialCommunityIcons name="chevron-left" color={colors.text} size={26} />
         </Pressable>
       ) : null}
       <View style={themed($headerCopy)}>
@@ -156,7 +156,7 @@ export function SettingsSummaryCard({
           <Text text={subtitle} numberOfLines={2} style={themed($muted)} />
         </View>
       </View>
-      <MaterialCommunityIcons name="chevron-right" color={colors.textDim} size={28} />
+      <MaterialCommunityIcons name="chevron-right" color={colors.textDim} size={24} />
     </SettingsCard>
   )
 }
@@ -248,7 +248,7 @@ export function SettingsRow({
       {value ? <Text text={value} numberOfLines={1} style={themed($value)} /> : null}
       {trailing}
       {onPress && !trailing ? (
-        <MaterialCommunityIcons name="chevron-right" color={colors.textDim} size={26} />
+        <MaterialCommunityIcons name="chevron-right" color={colors.textDim} size={22} />
       ) : null}
     </Pressable>
   )
@@ -257,58 +257,58 @@ export function SettingsRow({
 const $header: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
-  gap: spacing.md,
-  minHeight: 64,
+  gap: spacing.sm,
+  minHeight: 48,
 })
 const $headerCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $headerAction: ThemedStyle<ViewStyle> = () => ({ marginLeft: "auto" })
 const $backButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   borderColor: colors.palette.stroke,
-  borderRadius: 28,
+  borderRadius: 22,
   borderWidth: 1,
-  height: 56,
+  height: 44,
   justifyContent: "center",
-  width: 56,
+  width: 44,
 })
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 36,
-  lineHeight: 42,
+  fontSize: 28,
+  lineHeight: 34,
 })
 const $card: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.surfaceContainer,
   borderColor: colors.palette.stroke,
-  borderRadius: 28,
+  borderRadius: 22,
   borderWidth: 1,
   overflow: "hidden",
-  padding: spacing.lg,
+  padding: spacing.md,
 })
 const $summaryCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
   gap: spacing.sm,
-  minHeight: 88,
-  paddingHorizontal: spacing.md,
-  paddingVertical: spacing.sm,
+  minHeight: 72,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
 })
 const $summaryIcon: ThemedStyle<ViewStyle> = () => ({
-  transform: [{ scale: 0.82 }],
+  transform: [{ scale: 0.78 }],
 })
 const $summaryCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $cardTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.semiBold,
-  fontSize: 20,
-  lineHeight: 26,
+  fontSize: 17,
+  lineHeight: 22,
 })
 const $icon: ThemedStyle<ViewStyle> = () => ({
   alignItems: "center",
-  borderRadius: 28,
-  height: 56,
+  borderRadius: 22,
+  height: 44,
   justifyContent: "center",
-  width: 56,
+  width: 44,
 })
 const $iconTone: Record<SettingsTone, ThemedStyle<ViewStyle>> = {
   primary: () => ({ backgroundColor: "rgba(62, 165, 118, 0.18)" }),
@@ -325,24 +325,24 @@ const $status: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 const $positiveDot: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.tint,
   borderRadius: 5,
-  height: 10,
-  width: 10,
+  height: 8,
+  width: 8,
 })
 const $neutralDot: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.textDim,
   borderRadius: 5,
-  height: 10,
-  width: 10,
+  height: 8,
+  width: 8,
 })
 const $positiveText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.tint,
-  fontSize: 15,
-  lineHeight: 21,
+  fontSize: 13,
+  lineHeight: 18,
 })
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 15,
-  lineHeight: 21,
+  fontSize: 13,
+  lineHeight: 18,
 })
 const $sectionHeader: ThemedStyle<ViewStyle> = () => ({
   alignItems: "center",
@@ -361,19 +361,19 @@ const $sectionToggle: ThemedStyle<ViewStyle> = () => ({
 const $eyebrow: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
   fontFamily: typography.primary.semiBold,
-  fontSize: 14,
-  letterSpacing: 2.4,
-  lineHeight: 20,
+  fontSize: 12,
+  letterSpacing: 2,
+  lineHeight: 18,
 })
 const $row: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   borderTopColor: colors.palette.stroke,
   borderTopWidth: 1,
   flexDirection: "row",
-  gap: spacing.md,
-  minHeight: 88,
-  paddingTop: spacing.md,
-  paddingVertical: spacing.md,
+  gap: spacing.sm,
+  minHeight: 68,
+  paddingTop: spacing.sm,
+  paddingVertical: spacing.sm,
 })
 const $firstRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   borderTopWidth: 0,
@@ -383,13 +383,13 @@ const $rowCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $rowTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.medium,
-  fontSize: 18,
-  lineHeight: 24,
+  fontSize: 16,
+  lineHeight: 21,
 })
 const $value: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
   flexShrink: 1,
-  fontSize: 16,
+  fontSize: 14,
   maxWidth: "38%",
   textAlign: "right",
 })

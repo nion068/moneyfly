@@ -61,12 +61,12 @@ const $overlay: ThemedStyle<ViewStyle> = ({ colors }) => ({
 const $sheet: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.surfaceContainer,
   borderColor: colors.palette.stroke,
-  borderTopLeftRadius: 30,
-  borderTopRightRadius: 30,
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
   borderWidth: 1,
-  gap: spacing.lg,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxl,
+  gap: spacing.md,
+  padding: spacing.md,
+  paddingBottom: spacing.xl,
 })
 const $header: ThemedStyle<ViewStyle> = () => ({
   alignItems: "center",
@@ -76,14 +76,14 @@ const $header: ThemedStyle<ViewStyle> = () => ({
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 26,
+  fontSize: 22,
 })
 const $close: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.surfaceContainerHigh,
-  borderRadius: 22,
-  height: 44,
+  borderRadius: 20,
+  height: 40,
   justifyContent: "center",
-  width: 44,
+  width: 40,
 })
-const $body: ThemedStyle<ViewStyle> = ({ spacing }) => ({ gap: spacing.md })
+const $body: ThemedStyle<ViewStyle> = ({ spacing }) => ({ gap: spacing.sm })

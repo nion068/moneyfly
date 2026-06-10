@@ -143,7 +143,7 @@ export const SettingsAccountsScreen: FC<Props> = ({ navigation }) => {
               onPress={() => openEditor()}
               style={themed($add)}
             >
-              <MaterialCommunityIcons name="plus" color={colors.palette.surfaceDim} size={30} />
+              <MaterialCommunityIcons name="plus" color={colors.palette.surfaceDim} size={26} />
             </Pressable>
           }
         />
@@ -290,17 +290,17 @@ export const SettingsAccountsScreen: FC<Props> = ({ navigation }) => {
 }
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.lg,
-  padding: spacing.lg,
-  paddingBottom: spacing.xxxl,
+  gap: spacing.md,
+  padding: spacing.md,
+  paddingBottom: 112,
 })
 const $add: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.tint,
-  borderRadius: 28,
-  height: 56,
+  borderRadius: 22,
+  height: 44,
   justifyContent: "center",
-  width: 56,
+  width: 44,
 })
 const $searchContainer: ThemedStyle<ViewStyle> = () => ({
   width: "100%",
@@ -309,15 +309,15 @@ const $searchInputWrapper: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.surfaceContainer,
   borderColor: colors.palette.stroke,
-  borderRadius: 22,
-  height: 54,
+  borderRadius: 18,
+  height: 48,
 })
 const $searchInput: ThemedStyle<TextStyle> = ({ colors }) => ({
   alignSelf: "center",
   color: colors.text,
-  fontSize: 16,
-  height: 54,
-  lineHeight: 22,
+  fontSize: 14,
+  height: 48,
+  lineHeight: 20,
   marginHorizontal: 0,
   marginVertical: 0,
   paddingVertical: 0,
@@ -333,38 +333,38 @@ const $group: ThemedStyle<ViewStyle> = () => ({ padding: 0 })
 const $groupHeader: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   flexDirection: "row",
-  gap: spacing.sm,
-  padding: spacing.md,
+  gap: spacing.xs,
+  padding: spacing.sm,
 })
 const $groupTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   flex: 1,
   fontFamily: typography.primary.semiBold,
-  fontSize: 18,
+  fontSize: 16,
 })
 const $accountRow: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   borderTopColor: colors.palette.stroke,
   borderTopWidth: 1,
   flexDirection: "row",
-  gap: spacing.sm,
-  minHeight: 92,
-  padding: spacing.md,
+  gap: spacing.xs,
+  minHeight: 68,
+  padding: spacing.sm,
 })
 const $accountCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
 const $accountName: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.medium,
-  fontSize: 17,
+  fontSize: 15,
 })
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 14,
-  lineHeight: 20,
+  fontSize: 12,
+  lineHeight: 17,
 })
 const $emptySearch: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   color: colors.textDim,
-  paddingVertical: spacing.lg,
+  paddingVertical: spacing.md,
   textAlign: "center",
 })
 const $balance: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
@@ -378,8 +378,8 @@ const $negative: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
 const $edit: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
   backgroundColor: colors.palette.surfaceContainerHigh,
-  borderRadius: 22,
-  height: 44,
+  borderRadius: 18,
+  height: 36,
   justifyContent: "center",
-  width: 44,
+  width: 36,
 })
