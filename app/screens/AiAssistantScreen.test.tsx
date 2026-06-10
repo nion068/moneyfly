@@ -60,9 +60,11 @@ jest.mock("@expo/vector-icons", () => {
 jest.mock("react-native-keyboard-controller", () => {
   const { View } = require("react-native")
   return {
+    KeyboardAvoidingView: View,
     KeyboardAwareScrollView: View,
-    useKeyboardState: (selector: (state: { isVisible: boolean; height: number }) => number) =>
-      selector({ isVisible: false, height: 0 }),
+    useKeyboardState: (
+      selector: (state: { isVisible: boolean; height: number }) => boolean | number,
+    ) => selector({ isVisible: false, height: 0 }),
   }
 })
 

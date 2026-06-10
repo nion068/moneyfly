@@ -1,4 +1,5 @@
 import type { TransactionType } from "@/models/firefly"
+import { formatDisplayNumber } from "@/utils/numbers"
 
 import type { MoneyAgentDraftField, MoneyAgentEntity, MoneyAgentTransactionDraft } from "./types"
 
@@ -38,7 +39,9 @@ export function getMoneyAgentDraftType(type: TransactionType) {
 
 export function formatMoneyAgentDraftAmount(draft: MoneyAgentTransactionDraft) {
   const presentation = getMoneyAgentDraftType(draft.type)
-  return `${presentation.amountSign}${draft.currencyCode} ${Number(draft.amount || 0).toLocaleString()}`
+  return `${presentation.amountSign}${draft.currencyCode} ${formatDisplayNumber(
+    Number(draft.amount || 0),
+  )}`
 }
 
 function normalizedAccountType(account: MoneyAgentEntity) {

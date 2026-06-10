@@ -41,6 +41,11 @@ describe("money agent draft helpers", () => {
     expect(formatMoneyAgentDraftAmount({ ...draft, type })).toBe(amount)
   })
 
+  it("shows up to two decimal places only when needed", () => {
+    expect(formatMoneyAgentDraftAmount({ ...draft, amount: "1250.5" })).toBe("-BDT 1,250.5")
+    expect(formatMoneyAgentDraftAmount({ ...draft, amount: "1250.567" })).toBe("-BDT 1,250.57")
+  })
+
   it("preserves compatible accounts and clears incompatible accounts on type changes", () => {
     const transfer = reconcileMoneyAgentDraftAccounts({ ...draft, type: "transfer" }, accounts)
 

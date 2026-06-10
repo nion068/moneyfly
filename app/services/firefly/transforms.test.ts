@@ -10,6 +10,7 @@ import {
   findCashWalletName,
   flattenFireflyTransactions,
   formatDateKey,
+  formatMoney,
   getAnalyticsRange,
   getTransactionIconName,
   getMonthRange,
@@ -60,6 +61,12 @@ const groupedTransactions: FireflyTransaction[] = [
 ]
 
 describe("Firefly transforms", () => {
+  it("shows up to two decimal places only when needed", () => {
+    expect(formatMoney(1200, "$")).toBe("$ 1,200")
+    expect(formatMoney(1200.5, "$")).toBe("$ 1,200.5")
+    expect(formatMoney(1200.567, "$")).toBe("$ 1,200.57")
+  })
+
   it("flattens grouped Firefly transactions", () => {
     const transactions = flattenFireflyTransactions(groupedTransactions)
 

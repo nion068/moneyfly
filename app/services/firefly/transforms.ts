@@ -12,6 +12,7 @@ import {
   TransactionType,
   UpdateTransactionRequest,
 } from "@/models/firefly"
+import { formatDisplayNumber, roundToTwoDecimals } from "@/utils/numbers"
 
 const categoryColors = ["#ff7a1a", "#a548f5", "#86cdea", "#9a958d", "#d87162", "#ded8ce"]
 
@@ -23,9 +24,7 @@ function parseAmount(value?: string | number) {
 
 export function formatMoney(amount: number, symbol = "৳") {
   const sign = amount < 0 ? "-" : ""
-  return `${sign}${symbol} ${Math.abs(amount).toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  })}`
+  return `${sign}${symbol} ${formatDisplayNumber(Math.abs(amount))}`
 }
 
 export function maskMoney(symbol = "৳") {
@@ -63,7 +62,7 @@ export function buildMonthlySummary(transactions: FlatTransaction[]): MonthlySum
     .filter((transaction) => transaction.type === "withdrawal")
     .reduce((total, transaction) => total + transaction.amount, 0)
   const saved = totalIncome - totalExpense
-  const savingsRate = totalIncome > 0 ? Math.round((saved / totalIncome) * 100) : 0
+  const savingsRate = totalIncome > 0 ? roundToTwoDecimals((saved / totalIncome) * 100) : 0
 
   return {
     totalIncome,
@@ -109,7 +108,7 @@ export function groupExpensesByCategory(transactions: FlatTransaction[]): Catego
       return {
         name,
         amount,
-        percentage: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
+        percentage: totalExpense > 0 ? roundToTwoDecimals((amount / totalExpense) * 100) : 0,
         color: categoryColors[index % categoryColors.length],
         transactions: categoryTransactions,
       }
@@ -143,7 +142,7 @@ export function groupExpensesByAccount(transactions: FlatTransaction[]): Account
       return {
         name,
         amount,
-        percentage: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
+        percentage: totalExpense > 0 ? roundToTwoDecimals((amount / totalExpense) * 100) : 0,
         color: categoryColors[index % categoryColors.length],
         transactions: accountTransactions,
       }

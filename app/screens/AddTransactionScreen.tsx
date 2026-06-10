@@ -23,6 +23,7 @@ import {
 } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { formatDisplayNumber } from "@/utils/numbers"
 import { mergeTagNames } from "@/utils/tags"
 
 type AddTransactionScreenProps = AppStackScreenProps<"AddTransaction" | "EditTransaction">
@@ -124,7 +125,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
 
     initializedEditId.current = editParams.groupId
     setType(split.type)
-    setAmount(Number(split.amount).toFixed(2))
+    setAmount(formatDisplayNumber(Number(split.amount), false))
     setDescription(split.description)
     setDate(new Date(split.date))
     setSourceId(split.source_id ?? "")

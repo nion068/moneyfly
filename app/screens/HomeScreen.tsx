@@ -32,6 +32,7 @@ import {
 } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { formatDisplayNumber } from "@/utils/numbers"
 
 type HomeScreenProps = MainTabScreenProps<"Home">
 type TypeFilter = "All" | "Expenses" | "Income" | "Transfers"
@@ -237,7 +238,7 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
               <View style={themed($savingsHeader)}>
                 <Text text="Savings rate" style={themed($muted)} />
                 <Text
-                  text={hideAmounts ? "•••" : `${summary.savingsRate}%`}
+                  text={hideAmounts ? "•••" : `${formatDisplayNumber(summary.savingsRate)}%`}
                   style={themed($savedPercent)}
                 />
               </View>

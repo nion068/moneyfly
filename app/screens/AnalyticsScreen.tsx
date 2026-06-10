@@ -24,6 +24,7 @@ import {
 } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { formatDisplayNumber } from "@/utils/numbers"
 
 type AnalyticsScreenProps = MainTabScreenProps<"Analytics">
 
@@ -254,7 +255,12 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
               tone="expense"
               icon="↗"
             />
-            <MetricPill label="Saved" value={`${summary.savingsRate}%`} tone="saved" icon="✿" />
+            <MetricPill
+              label="Saved"
+              value={`${formatDisplayNumber(summary.savingsRate)}%`}
+              tone="saved"
+              icon="✿"
+            />
           </View>
 
           {/* Spending Breakdown */}
@@ -378,7 +384,10 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
                         text={formatMoney(category.amount, summary.currencySymbol)}
                         style={themed($categoryAmount)}
                       />
-                      <Text text={`${category.percentage}%`} style={themed($categoryPercent)} />
+                      <Text
+                        text={`${formatDisplayNumber(category.percentage)}%`}
+                        style={themed($categoryPercent)}
+                      />
                       <MaterialCommunityIcons
                         name={isOpen ? "chevron-up" : "chevron-down"}
                         size={18}
@@ -439,7 +448,10 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
                       text={formatMoney(account.amount, summary.currencySymbol)}
                       style={themed($categoryAmount)}
                     />
-                    <Text text={`${account.percentage}%`} style={themed($categoryPercent)} />
+                    <Text
+                      text={`${formatDisplayNumber(account.percentage)}%`}
+                      style={themed($categoryPercent)}
+                    />
                     <MaterialCommunityIcons
                       name={isOpen ? "chevron-up" : "chevron-down"}
                       size={18}
@@ -521,7 +533,7 @@ function LegendRow({
         numberOfLines={1}
       />
       <Text
-        text={`${category.percentage}%`}
+        text={`${formatDisplayNumber(category.percentage)}%`}
         style={themed([$legendPercent, isSelected && $legendTextSelected])}
       />
     </Pressable>

@@ -28,6 +28,7 @@ import {
 import type { MoneyAgentEntity, MoneyAgentTransactionDraft } from "@/services/ai/types"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+import { formatDisplayNumber } from "@/utils/numbers"
 import { mergeTagNames } from "@/utils/tags"
 
 type AiAssistantScreenProps = MainTabScreenProps<"AiAssistant">
@@ -829,7 +830,10 @@ function MoneyAgentDraftCard({
                   return
                 }
                 setIsExpanded(true)
-                setLocalDraft(draft)
+                setLocalDraft({
+                  ...draft,
+                  amount: formatDisplayNumber(Number(draft.amount || 0), false),
+                })
                 setEditing(true)
               }}
             />
