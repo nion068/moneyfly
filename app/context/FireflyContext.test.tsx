@@ -7,6 +7,7 @@ const mockGetTransactions = jest.fn()
 const mockGetCategories = jest.fn()
 const mockGetBudgets = jest.fn()
 const mockGetTags = jest.fn()
+const mockGetCurrentUser = jest.fn()
 const mockDeleteTransaction = jest.fn()
 
 jest.mock("react-native-mmkv", () => ({
@@ -26,6 +27,7 @@ jest.mock("@/services/firefly/api", () => ({
     getCategories: mockGetCategories,
     getBudgets: mockGetBudgets,
     getTags: mockGetTags,
+    getCurrentUser: mockGetCurrentUser,
     deleteTransaction: mockDeleteTransaction,
   })),
   normalizeBaseUrl: (value: string) => value,
@@ -58,6 +60,10 @@ describe("FireflyProvider month loading", () => {
     mockGetCategories.mockResolvedValue(ok)
     mockGetBudgets.mockResolvedValue(ok)
     mockGetTags.mockResolvedValue(ok)
+    mockGetCurrentUser.mockResolvedValue({
+      kind: "ok",
+      data: { id: "user-1", attributes: { email: "user@example.com" } },
+    })
     mockDeleteTransaction.mockResolvedValue({ kind: "ok", data: true })
   })
 

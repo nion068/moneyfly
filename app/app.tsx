@@ -25,9 +25,11 @@ import * as Linking from "expo-linking"
 import { KeyboardProvider } from "react-native-keyboard-controller"
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context"
 
+import { SecurityGate } from "./components/settings/SecurityGate"
 import { Text } from "./components/Text"
 import { FireflyProvider } from "./context/FireflyContext"
 import { MoneyAgentProvider } from "./context/MoneyAgentContext"
+import { SecurityProvider } from "./context/SecurityContext"
 import { initI18n } from "./i18n"
 import { AppNavigator } from "./navigators/AppNavigator"
 import { useNavigationPersistence } from "./navigators/navigationUtilities"
@@ -93,13 +95,17 @@ export function App() {
       <KeyboardProvider>
         <FireflyProvider>
           <MoneyAgentProvider>
-            <ThemeProvider>
-              <AppNavigator
-                linking={linking}
-                initialState={initialNavigationState}
-                onStateChange={onNavigationStateChange}
-              />
-            </ThemeProvider>
+            <SecurityProvider>
+              <ThemeProvider>
+                <SecurityGate>
+                  <AppNavigator
+                    linking={linking}
+                    initialState={initialNavigationState}
+                    onStateChange={onNavigationStateChange}
+                  />
+                </SecurityGate>
+              </ThemeProvider>
+            </SecurityProvider>
           </MoneyAgentProvider>
         </FireflyProvider>
       </KeyboardProvider>

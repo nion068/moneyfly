@@ -15,6 +15,14 @@ export type FireflySingleEnvelope<T> = {
   data: T
 }
 
+export type FireflyUser = {
+  id: string
+  attributes: {
+    email?: string
+    name?: string
+  }
+}
+
 export type FireflyAccount = {
   id: string
   attributes: {
@@ -28,6 +36,21 @@ export type FireflyAccount = {
     currency_symbol?: string
     currency_decimal_places?: number
   }
+}
+
+export type StoreAccountRequest = {
+  name: string
+  type: string
+  currency_code: string
+  active: boolean
+}
+
+export type StoreCategoryRequest = {
+  name: string
+}
+
+export type StoreTagRequest = {
+  tag: string
 }
 
 export type FireflyTransaction = {

@@ -14,7 +14,16 @@ export type MainTabParamList = {
   Accounts: undefined
   AiAssistant: undefined
   Analytics: undefined
-  Settings: undefined
+  Settings: NavigatorScreenParams<SettingsStackParamList> | undefined
+}
+
+export type SettingsStackParamList = {
+  SettingsHome: undefined
+  SettingsFirefly: undefined
+  SettingsAiAssistant: undefined
+  SettingsAccounts: undefined
+  SettingsClassification: undefined
+  SettingsSecurity: undefined
 }
 
 export type DemoTabParamList = {
@@ -44,6 +53,9 @@ export type MainTabScreenProps<T extends keyof MainTabParamList> = CompositeScre
   BottomTabScreenProps<MainTabParamList, T>,
   AppStackScreenProps<keyof AppStackParamList>
 >
+
+export type SettingsStackScreenProps<T extends keyof SettingsStackParamList> =
+  NativeStackScreenProps<SettingsStackParamList, T>
 
 export type DemoTabScreenProps<T extends keyof DemoTabParamList> = CompositeScreenProps<
   BottomTabScreenProps<DemoTabParamList, T>,

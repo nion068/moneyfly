@@ -142,4 +142,41 @@ describe("FireflyApi", () => {
     ).resolves.toEqual({ kind: "ok", data: true })
     expect(deleteRequest).toHaveBeenCalledWith("api/v1/transactions/group-1")
   })
+
+  it("creates and updates settings entities through Firefly", async () => {
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: { id: "account-1", attributes: { name: "Checking", type: "asset" } } },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: { id: "category-1", attributes: { name: "Food" } } },
+      })
+    const put = jest.fn().mockResolvedValue({
+      ok: true,
+      data: { data: { id: "tag-1", attributes: { tag: "monthly" } } },
+    })
+    ;(create as jest.Mock).mockReturnValue({ get: jest.fn(), post, put, delete: jest.fn() })
+    const api = new FireflyApi("https://firefly.example.com", "token")
+
+    await api.createAccount({
+      name: "Checking",
+      type: "asset",
+      currency_code: "USD",
+      active: true,
+    })
+    await api.createCategory({ name: "Food" })
+    await api.updateTag("tag-1", { tag: "monthly" })
+
+    expect(post).toHaveBeenNthCalledWith(1, "api/v1/accounts", {
+      name: "Checking",
+      type: "asset",
+      currency_code: "USD",
+      active: true,
+    })
+    expect(post).toHaveBeenNthCalledWith(2, "api/v1/categories", { name: "Food" })
+    expect(put).toHaveBeenCalledWith("api/v1/tags/tag-1", { tag: "monthly" })
+  })
 })

@@ -1,271 +1,205 @@
-import { FC, useEffect, useState } from "react"
-import { ActivityIndicator, Pressable, TextStyle, View, ViewStyle } from "react-native"
+import { FC } from "react"
+import { TextStyle, View, ViewStyle } from "react-native"
+import * as Application from "expo-application"
 
-import { Button } from "@/components/Button"
-import { FinanceCard, SectionHeader } from "@/components/firefly/FinancePrimitives"
 import { Screen } from "@/components/Screen"
+import {
+  SettingsCard,
+  SettingsIcon,
+  SettingsSummaryCard,
+} from "@/components/settings/SettingsPrimitives"
 import { Text } from "@/components/Text"
-import { TextField } from "@/components/TextField"
 import { useFirefly } from "@/context/FireflyContext"
 import { useMoneyAgent } from "@/context/MoneyAgentContext"
-import type { MainTabScreenProps } from "@/navigators/navigationTypes"
+import type { SettingsStackScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
-type SettingsScreenProps = MainTabScreenProps<"Settings">
+type SettingsScreenProps = SettingsStackScreenProps<"SettingsHome">
 
-export const SettingsScreen: FC<SettingsScreenProps> = () => {
-  const {
-    themed,
-    theme: { colors },
-  } = useAppTheme()
-  const {
-    baseUrl,
-    disconnect,
-    hideAmounts,
-    toggleHideAmounts,
-    refresh,
-    isRefreshing,
-    lastSyncedAt,
-    accounts,
-    transactions,
-  } = useFirefly()
-  const {
-    providerId,
-    model,
-    hasApiKey,
-    isSavingSettings,
-    error: moneyAgentError,
-    saveSettings,
-    removeCredentials,
-    testCurrentConnection,
-  } = useMoneyAgent()
-  const [modelInput, setModelInput] = useState(model)
-  const [apiKeyInput, setApiKeyInput] = useState("")
-  const error = transactions.error ?? accounts.error
+function relativeSyncLabel(lastSyncedAt?: Date) {
+  if (!lastSyncedAt) return "Not synced yet"
+  const minutes = Math.max(0, Math.floor((Date.now() - lastSyncedAt.getTime()) / 60000))
+  if (minutes < 1) return "Last sync just now"
+  if (minutes === 1) return "Last sync 1 min ago"
+  if (minutes < 60) return `Last sync ${minutes} min ago`
+  return `Last sync ${lastSyncedAt.toLocaleDateString()}`
+}
 
-  useEffect(() => {
-    setModelInput(model)
-  }, [model])
+export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
+  const { themed } = useAppTheme()
+  const { accounts, categories, tags, currentUser, lastSyncedAt, transactions, isRefreshing } =
+    useFirefly()
+  const { hasApiKey, model } = useMoneyAgent()
+  const connectionError = accounts.error ?? transactions.error
+  const user = currentUser.data?.attributes
+  const identity = user?.name || user?.email || "Firefly user"
+  const email = user?.email && user.email !== identity ? user.email : "Connected account"
+  const initials = identity
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
+
+  const activeAccounts = accounts.data.filter((account) => account.attributes.active !== false)
+  const accountTypes = new Set(activeAccounts.map((account) => account.attributes.type)).size
+  const version = Application.nativeApplicationVersion ?? "dev"
+  const build = Application.nativeBuildVersion
 
   return (
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
-      <View>
-        <Text text="Settings" style={themed($title)} />
-        <Text text="Connection, privacy, and automation controls" style={themed($muted)} />
+      <Text text="Settings" style={themed($title)} />
+
+      <SettingsCard style={themed($profileCard)}>
+        <View style={themed($avatar)}>
+          <Text text={initials || "FF"} style={themed($avatarText)} />
+        </View>
+        <View style={themed($profileCopy)}>
+          <Text text={identity} style={themed($profileName)} />
+          <Text text={email} style={themed($muted)} />
+          <Text text="● Connected to Firefly III" style={themed($positive)} />
+        </View>
+      </SettingsCard>
+
+      <View style={themed($cards)}>
+        <SettingsSummaryCard
+          title="Firefly"
+          subtitle={
+            connectionError
+              ? "Connection needs attention"
+              : `${isRefreshing ? "Syncing" : "Connected"} · ${relativeSyncLabel(lastSyncedAt)}`
+          }
+          status={!connectionError}
+          icon="server"
+          tone="blue"
+          onPress={() => navigation.navigate("SettingsFirefly")}
+        />
+        <SettingsSummaryCard
+          title="AI Assistant"
+          subtitle={hasApiKey ? `${model} active` : "Gemini not configured"}
+          status={hasApiKey}
+          icon="creation"
+          tone="primary"
+          onPress={() => navigation.navigate("SettingsAiAssistant")}
+        />
+        <SettingsSummaryCard
+          title="Accounts"
+          subtitle={`${accountTypes} account types · ${activeAccounts.length} accounts`}
+          icon="bank-outline"
+          tone="primary"
+          onPress={() => navigation.navigate("SettingsAccounts")}
+        />
+        <SettingsSummaryCard
+          title="Classification"
+          subtitle={`${categories.data.length} categories · ${tags.data.length} tags`}
+          icon="view-grid-outline"
+          tone="neutral"
+          onPress={() => navigation.navigate("SettingsClassification")}
+        />
+        <SettingsSummaryCard
+          title="Security"
+          subtitle="Configure biometric unlock"
+          icon="fingerprint"
+          tone="blue"
+          onPress={() => navigation.navigate("SettingsSecurity")}
+        />
       </View>
 
-      <FinanceCard>
-        <SectionHeader title="Firefly Connection" />
-        <SettingRow label="Server" value={baseUrl.replace(/^https?:\/\//, "")} />
-        <SettingRow
-          label="Status"
-          value={error ? "Needs attention" : isRefreshing ? "Refreshing" : "Connected"}
-          tone={error ? undefined : "positive"}
-        />
-        <SettingRow
-          label="Last sync"
-          value={lastSyncedAt ? lastSyncedAt.toLocaleString() : "Not synced yet"}
-        />
-        {!!error && (
-          <Text
-            text={
-              error.kind === "unauthorized"
-                ? `${error.message} Reconnect with a valid personal access token.`
-                : `${error.message} Check the server and retry.`
-            }
-            style={themed($error)}
-          />
-        )}
-        <Pressable
-          disabled={isRefreshing}
-          onPress={() => void refresh()}
-          style={themed($refreshButton)}
-        >
-          {isRefreshing && <ActivityIndicator color={colors.tint} size="small" />}
-          <Text
-            text={isRefreshing ? "Refreshing..." : "Refresh now"}
-            style={themed($refreshText)}
-          />
-        </Pressable>
-        <Pressable onPress={disconnect} style={themed($dangerButton)}>
-          <Text text="Disconnect" style={themed($dangerText)} />
-        </Pressable>
-      </FinanceCard>
+      <Text text="DANGER ZONE" style={themed($eyebrow)} />
+      <SettingsCard disabled>
+        <View style={themed($dangerRow)}>
+          <SettingsIcon name="logout" tone="danger" />
+          <Text text="Sign Out" style={themed($dangerText)} />
+        </View>
+        <View style={themed($dangerDivider)} />
+        <View style={themed($dangerRow)}>
+          <SettingsIcon name="trash-can-outline" tone="danger" />
+          <Text text="Clear Local Data" style={themed($dangerText)} />
+        </View>
+      </SettingsCard>
 
-      <FinanceCard>
-        <SectionHeader title="Privacy" />
-        <Pressable onPress={toggleHideAmounts} style={themed($settingRow)}>
-          <View>
-            <Text text="Hide amounts" style={themed($settingLabel)} />
-            <Text text="Masks balances and transaction values in public." style={themed($muted)} />
-          </View>
-          <Text
-            text={hideAmounts ? "On" : "Off"}
-            style={themed(hideAmounts ? $positive : $settingValue)}
-          />
-        </Pressable>
-      </FinanceCard>
-
-      <FinanceCard>
-        <SectionHeader title="Money Agent" />
-        <SettingRow label="Provider" value={providerId.toUpperCase()} />
-        <SettingRow
-          label="Key status"
-          value={hasApiKey ? "Saved securely" : "Not configured"}
-          tone={hasApiKey ? "positive" : undefined}
-        />
-        <TextField
-          label="Model"
-          value={modelInput}
-          onChangeText={setModelInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <TextField
-          label="Gemini API key"
-          value={apiKeyInput}
-          onChangeText={setApiKeyInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry
-          placeholder={
-            hasApiKey ? "Leave blank to keep the saved key" : "Enter your Gemini API key"
-          }
-        />
-        {!!moneyAgentError && <Text text={moneyAgentError} style={themed($error)} />}
-        <Pressable
-          disabled={isSavingSettings}
-          onPress={() =>
-            void testCurrentConnection({ providerId, model: modelInput, apiKey: apiKeyInput })
-          }
-          style={themed($refreshButton)}
-        >
-          {isSavingSettings && <ActivityIndicator color={colors.tint} size="small" />}
-          <Text text="Test key" style={themed($refreshText)} />
-        </Pressable>
-        <Button
-          text={isSavingSettings ? "Saving..." : "Save settings"}
-          preset="filled"
-          disabled={isSavingSettings}
-          onPress={() =>
-            void (async () => {
-              const ok = await saveSettings({ providerId, model: modelInput, apiKey: apiKeyInput })
-              if (ok) setApiKeyInput("")
-            })()
-          }
-        />
-        <Button
-          text="Remove key"
-          onPress={() =>
-            void (async () => {
-              await removeCredentials()
-              setApiKeyInput("")
-            })()
-          }
-          disabled={isSavingSettings || !hasApiKey}
-        />
-      </FinanceCard>
-
-      <FinanceCard>
-        <SectionHeader title="SMS Automation" />
-        <Text
-          text="Deferred for the native Android milestone. The React Native client keeps this placeholder disabled until permissions, manifest receiver, and draft repository are implemented."
-          style={themed($muted)}
-        />
-      </FinanceCard>
+      <Text text={`Moneyfly · v${version}${build ? ` (${build})` : ""}`} style={themed($version)} />
     </Screen>
   )
 }
 
-function SettingRow({ label, value, tone }: { label: string; value: string; tone?: "positive" }) {
-  const { themed } = useAppTheme()
-
-  return (
-    <View style={themed($settingRow)}>
-      <Text text={label} style={themed($settingLabel)} />
-      <Text text={value} style={themed(tone === "positive" ? $positive : $settingValue)} />
-    </View>
-  )
-}
-
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.lg,
+  gap: spacing.md,
   padding: spacing.lg,
   paddingBottom: spacing.xxxl,
 })
-
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
-  fontSize: 40,
-  lineHeight: 48,
+  fontSize: 42,
+  lineHeight: 50,
 })
-
+const $profileCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  backgroundColor: "rgba(18, 118, 77, 0.12)",
+  borderColor: "rgba(62, 165, 118, 0.36)",
+  flexDirection: "row",
+  gap: spacing.md,
+  minHeight: 104,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.sm,
+})
+const $avatar: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.primary200,
+  borderRadius: 29,
+  height: 58,
+  justifyContent: "center",
+  width: 58,
+})
+const $avatarText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.bold,
+  fontSize: 20,
+})
+const $profileCopy: ThemedStyle<ViewStyle> = () => ({ flex: 1 })
+const $profileName: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 19,
+  lineHeight: 24,
+})
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
-  fontSize: 14,
-  lineHeight: 21,
+  fontSize: 15,
+  lineHeight: 22,
 })
-
-const $settingRow: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
-  alignItems: "center",
-  borderBottomColor: colors.palette.stroke,
-  borderBottomWidth: 1,
-  flexDirection: "row",
-  justifyContent: "space-between",
-  paddingVertical: spacing.md,
-})
-
-const $settingLabel: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
-  color: colors.text,
-  fontFamily: typography.primary.medium,
-  fontSize: 16,
-})
-
-const $settingValue: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.textDim,
-  flexShrink: 1,
-  textAlign: "right",
-})
-
-const $positive: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+const $positive: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.tint,
-  fontFamily: typography.primary.medium,
+  fontSize: 15,
+  lineHeight: 22,
 })
-
-const $dangerButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+const $cards: ThemedStyle<ViewStyle> = ({ spacing }) => ({ gap: spacing.xs })
+const $eyebrow: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.textDim,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 14,
+  letterSpacing: 2.4,
+  marginTop: 8,
+})
+const $dangerRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
-  borderColor: colors.palette.tertiary300,
-  borderRadius: 18,
-  borderWidth: 1,
-  marginTop: spacing.md,
-  padding: spacing.md,
+  flexDirection: "row",
+  gap: spacing.md,
 })
-
+const $dangerDivider: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.palette.stroke,
+  height: 1,
+  marginVertical: spacing.md,
+})
 const $dangerText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.tertiary300,
-  fontFamily: typography.primary.semiBold,
+  fontFamily: typography.primary.medium,
+  fontSize: 19,
 })
-
-const $refreshButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
-  alignItems: "center",
-  borderColor: colors.tint,
-  borderRadius: 18,
-  borderWidth: 1,
-  flexDirection: "row",
-  gap: spacing.xs,
-  justifyContent: "center",
-  marginTop: spacing.md,
-  padding: spacing.md,
-})
-
-const $refreshText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
-  color: colors.tint,
-  fontFamily: typography.primary.semiBold,
-})
-
-const $error: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
-  color: colors.error,
-  marginTop: spacing.md,
+const $version: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 14,
+  textAlign: "center",
 })

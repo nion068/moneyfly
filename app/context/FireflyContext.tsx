@@ -20,11 +20,15 @@ import {
   FireflyCategory,
   FireflyTag,
   FireflyTransaction,
+  FireflyUser,
   FlatTransaction,
+  StoreAccountRequest,
+  StoreCategoryRequest,
+  StoreTagRequest,
   StoreTransactionRequest,
   UpdateTransactionRequest,
 } from "@/models/firefly"
-import { FireflyApi, FireflyProblem, normalizeBaseUrl } from "@/services/firefly/api"
+import { FireflyApi, FireflyProblem, FireflyResult, normalizeBaseUrl } from "@/services/firefly/api"
 import {
   buildSummariesByCurrency,
   clampMonthToPresent,
@@ -53,6 +57,7 @@ type FireflyContextType = {
   categories: LoadState<FireflyCategory[]>
   budgets: LoadState<FireflyBudget[]>
   tags: LoadState<FireflyTag[]>
+  currentUser: LoadState<FireflyUser | null>
   summariesByCurrency: CurrencySummary[]
   selectedCurrency?: string
   isRefreshing: boolean
@@ -61,6 +66,7 @@ type FireflyContextType = {
   transactionDetail: LoadState<FireflyTransaction | null>
   transactionUpdate: LoadState<FireflyTransaction | null>
   transactionDeletion: LoadState<null>
+  settingsMutation: LoadState<null>
   setConnection: (baseUrl: string, token: string) => Promise<boolean>
   disconnect: () => void
   toggleHideAmounts: () => void
@@ -77,6 +83,12 @@ type FireflyContextType = {
   resetTransactionUpdate: () => void
   deleteTransaction: (id: string) => Promise<boolean>
   resetTransactionDeletion: () => void
+  saveAccount: (request: StoreAccountRequest, id?: string) => Promise<boolean>
+  saveCategory: (request: StoreCategoryRequest, id?: string) => Promise<boolean>
+  deleteCategory: (id: string) => Promise<boolean>
+  saveTag: (request: StoreTagRequest, id?: string) => Promise<boolean>
+  deleteTag: (id: string) => Promise<boolean>
+  resetSettingsMutation: () => void
 }
 
 const emptyState = <T,>(data: T): LoadState<T> => ({ data, status: "idle" })
@@ -97,6 +109,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   const [categories, setCategories] = useState(() => emptyState<FireflyCategory[]>([]))
   const [budgets, setBudgets] = useState(() => emptyState<FireflyBudget[]>([]))
   const [tags, setTags] = useState(() => emptyState<FireflyTag[]>([]))
+  const [currentUser, setCurrentUser] = useState(() => emptyState<FireflyUser | null>(null))
   const [selectedCurrency, setSelectedCurrency] = useState<string>()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<Date>()
@@ -110,6 +123,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     emptyState<FireflyTransaction | null>(null),
   )
   const [transactionDeletion, setTransactionDeletion] = useState(() => emptyState<null>(null))
+  const [settingsMutation, setSettingsMutation] = useState(() => emptyState<null>(null))
   const requestId = useRef(0)
 
   const hideAmounts = storedHideAmounts === "true"
@@ -134,14 +148,21 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
 
       const api = new FireflyApi(baseUrl, token)
       const range = getMonthRange(selectedMonth)
-      const [accountResult, transactionResult, categoryResult, budgetResult, tagResult] =
-        await Promise.all([
-          api.getAccounts(),
-          api.getTransactions(range),
-          api.getCategories(),
-          api.getBudgets(),
-          api.getTags(),
-        ])
+      const [
+        accountResult,
+        transactionResult,
+        categoryResult,
+        budgetResult,
+        tagResult,
+        userResult,
+      ] = await Promise.all([
+        api.getAccounts(),
+        api.getTransactions(range),
+        api.getCategories(),
+        api.getBudgets(),
+        api.getTags(),
+        api.getCurrentUser(),
+      ])
 
       if (currentRequest !== requestId.current) return
       const apply = <T,>(
@@ -161,8 +182,20 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       apply(categoryResult, setCategories)
       apply(budgetResult, setBudgets)
       apply(tagResult, setTags)
+      if (userResult.kind === "ok") {
+        setCurrentUser({ data: userResult.data, status: "ready" })
+      } else {
+        setCurrentUser((state) => ({ ...state, status: "error", error: userResult }))
+      }
 
-      const results = [accountResult, transactionResult, categoryResult, budgetResult, tagResult]
+      const results = [
+        accountResult,
+        transactionResult,
+        categoryResult,
+        budgetResult,
+        tagResult,
+        userResult,
+      ]
       if (results.some((result) => result.kind === "ok")) setLastSyncedAt(new Date())
       setIsRefreshing(false)
       setIsMonthLoading(false)
@@ -227,6 +260,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setCategories(emptyState([]))
     setBudgets(emptyState([]))
     setTags(emptyState([]))
+    setCurrentUser(emptyState(null))
     setSelectedCurrency(undefined)
     setLastSyncedAt(undefined)
     setIsRefreshing(false)
@@ -235,6 +269,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setTransactionDetail(emptyState(null))
     setTransactionUpdate(emptyState(null))
     setTransactionDeletion(emptyState(null))
+    setSettingsMutation(emptyState(null))
   }, [setStoredBaseUrl, setStoredToken])
 
   const createTransaction = useCallback(
@@ -307,6 +342,51 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   )
   const resetTransactionDeletion = useCallback(() => setTransactionDeletion(emptyState(null)), [])
 
+  const runSettingsMutation = useCallback(
+    async (operation: (api: FireflyApi) => Promise<FireflyResult<unknown>>) => {
+      if (!isConfigured) return false
+      setSettingsMutation({ data: null, status: "loading" })
+      const result = await operation(new FireflyApi(baseUrl, token))
+      if (result.kind !== "ok") {
+        setSettingsMutation({ data: null, status: "error", error: result })
+        return false
+      }
+      setSettingsMutation({ data: null, status: "ready" })
+      await load(true)
+      return true
+    },
+    [baseUrl, isConfigured, load, token],
+  )
+
+  const saveAccount = useCallback(
+    (request: StoreAccountRequest, id?: string) =>
+      runSettingsMutation((api) =>
+        id ? api.updateAccount(id, request) : api.createAccount(request),
+      ),
+    [runSettingsMutation],
+  )
+  const saveCategory = useCallback(
+    (request: StoreCategoryRequest, id?: string) =>
+      runSettingsMutation((api) =>
+        id ? api.updateCategory(id, request) : api.createCategory(request),
+      ),
+    [runSettingsMutation],
+  )
+  const removeCategory = useCallback(
+    (id: string) => runSettingsMutation((api) => api.deleteCategory(id)),
+    [runSettingsMutation],
+  )
+  const saveTag = useCallback(
+    (request: StoreTagRequest, id?: string) =>
+      runSettingsMutation((api) => (id ? api.updateTag(id, request) : api.createTag(request))),
+    [runSettingsMutation],
+  )
+  const removeTag = useCallback(
+    (id: string) => runSettingsMutation((api) => api.deleteTag(id)),
+    [runSettingsMutation],
+  )
+  const resetSettingsMutation = useCallback(() => setSettingsMutation(emptyState(null)), [])
+
   const changeSelectedMonth = useCallback(
     (month: Date) => {
       const nextMonth = clampMonthToPresent(month)
@@ -337,6 +417,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       categories,
       budgets,
       tags,
+      currentUser,
       summariesByCurrency,
       selectedCurrency,
       isRefreshing,
@@ -345,6 +426,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       transactionDetail,
       transactionUpdate,
       transactionDeletion,
+      settingsMutation,
       setConnection,
       disconnect,
       toggleHideAmounts: () => setStoredHideAmounts(hideAmounts ? "false" : "true"),
@@ -361,6 +443,12 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       resetTransactionUpdate,
       deleteTransaction,
       resetTransactionDeletion,
+      saveAccount,
+      saveCategory,
+      deleteCategory: removeCategory,
+      saveTag,
+      deleteTag: removeTag,
+      resetSettingsMutation,
     }),
     [
       accounts,
@@ -369,6 +457,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       categories,
       changeSelectedMonth,
       connectionError,
+      currentUser,
       createTransaction,
       deleteTransaction,
       disconnect,
@@ -384,12 +473,19 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       resetTransactionCreation,
       resetTransactionDeletion,
       resetTransactionUpdate,
+      resetSettingsMutation,
+      removeCategory,
+      removeTag,
+      saveAccount,
+      saveCategory,
+      saveTag,
       selectedCurrency,
       selectedMonth,
       setConnection,
       setStoredHideAmounts,
       summariesByCurrency,
       tags,
+      settingsMutation,
       token,
       transactionCreation,
       transactionDeletion,

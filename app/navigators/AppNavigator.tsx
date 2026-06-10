@@ -12,7 +12,6 @@ import { AiAssistantScreen } from "@/screens/AiAssistantScreen"
 import { AnalyticsScreen } from "@/screens/AnalyticsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { HomeScreen } from "@/screens/HomeScreen"
-import { SettingsScreen } from "@/screens/SettingsScreen"
 import { SetupScreen } from "@/screens/SetupScreen"
 import { TransactionDetailsScreen } from "@/screens/TransactionDetailsScreen"
 import { useAppTheme } from "@/theme/context"
@@ -20,6 +19,7 @@ import type { ThemedStyle } from "@/theme/types"
 
 import type { AppStackParamList, MainTabParamList, NavigationProps } from "./navigationTypes"
 import { navigationRef, useBackButtonHandler } from "./navigationUtilities"
+import { SettingsNavigator } from "./SettingsNavigator"
 
 const exitRoutes = Config.exitRoutes
 const Stack = createNativeStackNavigator<AppStackParamList>()
@@ -93,7 +93,7 @@ function MainTabs() {
       />
       <Tabs.Screen
         name="Settings"
-        component={SettingsScreen}
+        component={SettingsNavigator}
         options={{
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Settings" glyph="⚙" />,
         }}

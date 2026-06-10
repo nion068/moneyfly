@@ -8,6 +8,10 @@ import {
   FireflySingleEnvelope,
   FireflyTag,
   FireflyTransaction,
+  FireflyUser,
+  StoreAccountRequest,
+  StoreCategoryRequest,
+  StoreTagRequest,
   StoreTransactionRequest,
   UpdateTransactionRequest,
 } from "@/models/firefly"
@@ -57,6 +61,55 @@ export class FireflyApi {
     const response = await this.apisauce.get("api/v1/about/user")
     if (!response.ok) return toProblem(response)
     return { kind: "ok", data: true }
+  }
+
+  async getCurrentUser(): Promise<FireflyResult<FireflyUser>> {
+    return this.getSingle<FireflyUser>("api/v1/about/user")
+  }
+
+  async createAccount(request: StoreAccountRequest): Promise<FireflyResult<FireflyAccount>> {
+    return this.postSingle<FireflyAccount>("api/v1/accounts", request)
+  }
+
+  async updateAccount(
+    id: string,
+    request: StoreAccountRequest,
+  ): Promise<FireflyResult<FireflyAccount>> {
+    return this.putSingle<FireflyAccount>(`api/v1/accounts/${id}`, request)
+  }
+
+  async createCategory(request: StoreCategoryRequest): Promise<FireflyResult<FireflyCategory>> {
+    return this.postSingle<FireflyCategory>("api/v1/categories", request)
+  }
+
+  async updateCategory(
+    id: string,
+    request: StoreCategoryRequest,
+  ): Promise<FireflyResult<FireflyCategory>> {
+    return this.putSingle<FireflyCategory>(`api/v1/categories/${id}`, request)
+  }
+
+  async deleteCategory(id: string): Promise<FireflyResult<true>> {
+    return this.deleteSingle(`api/v1/categories/${id}`)
+  }
+
+  async createTag(request: StoreTagRequest): Promise<FireflyResult<FireflyTag>> {
+    return this.postSingle<FireflyTag>("api/v1/tags", request)
+  }
+
+  async updateTag(id: string, request: StoreTagRequest): Promise<FireflyResult<FireflyTag>> {
+    return this.putSingle<FireflyTag>(`api/v1/tags/${id}`, request)
+  }
+
+  async deleteTag(id: string): Promise<FireflyResult<true>> {
+    return this.deleteSingle(`api/v1/tags/${id}`)
+  }
+
+  private async getSingle<T>(path: string): Promise<FireflyResult<T>> {
+    const response: ApiResponse<FireflySingleEnvelope<T>> = await this.apisauce.get(path)
+    if (!response.ok) return toProblem(response)
+    if (!response.data?.data) return { kind: "bad-data", message: "Firefly returned invalid data." }
+    return { kind: "ok", data: response.data.data }
   }
 
   async getAccounts(type = "all"): Promise<FireflyResult<FireflyAccount[]>> {
@@ -123,11 +176,27 @@ export class FireflyApi {
   }
 
   async deleteTransaction(id: string): Promise<FireflyResult<true>> {
-    const response = await this.apisauce.delete(`api/v1/transactions/${id}`)
+    return this.deleteSingle(`api/v1/transactions/${id}`)
+  }
 
+  private async deleteSingle(path: string): Promise<FireflyResult<true>> {
+    const response = await this.apisauce.delete(path)
     if (!response.ok) return toProblem(response)
-
     return { kind: "ok", data: true }
+  }
+
+  private async postSingle<T>(path: string, request: unknown): Promise<FireflyResult<T>> {
+    const response: ApiResponse<FireflySingleEnvelope<T>> = await this.apisauce.post(path, request)
+    if (!response.ok) return toProblem(response)
+    if (!response.data?.data) return { kind: "bad-data", message: "Firefly returned invalid data." }
+    return { kind: "ok", data: response.data.data }
+  }
+
+  private async putSingle<T>(path: string, request: unknown): Promise<FireflyResult<T>> {
+    const response: ApiResponse<FireflySingleEnvelope<T>> = await this.apisauce.put(path, request)
+    if (!response.ok) return toProblem(response)
+    if (!response.data?.data) return { kind: "bad-data", message: "Firefly returned invalid data." }
+    return { kind: "ok", data: response.data.data }
   }
 
   private async getCollection<T>(

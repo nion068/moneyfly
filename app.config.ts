@@ -36,6 +36,16 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
         ],
       },
     },
-    plugins: [...existingPlugins, "@react-native-community/datetimepicker", "expo-secure-store"],
+    plugins: [
+      ...existingPlugins,
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          faceIDPermission: "Allow Moneyfly to use Face ID to unlock the app.",
+        },
+      ],
+    ],
   }
 }
