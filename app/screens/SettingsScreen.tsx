@@ -12,6 +12,7 @@ import { Text } from "@/components/Text"
 import { useFirefly } from "@/context/FireflyContext"
 import { useMoneyAgent } from "@/context/MoneyAgentContext"
 import type { SettingsStackScreenProps } from "@/navigators/navigationTypes"
+import { isVisibleAccount } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
@@ -42,7 +43,9 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
     .slice(0, 2)
     .toUpperCase()
 
-  const activeAccounts = accounts.data.filter((account) => account.attributes.active !== false)
+  const activeAccounts = accounts.data.filter(
+    (account) => isVisibleAccount(account) && account.attributes.active !== false,
+  )
   const accountTypes = new Set(activeAccounts.map((account) => account.attributes.type)).size
   const version = Application.nativeApplicationVersion ?? "dev"
   const build = Application.nativeBuildVersion

@@ -8,7 +8,7 @@ import { Text } from "@/components/Text"
 import { useFirefly } from "@/context/FireflyContext"
 import type { AccountSummary } from "@/models/firefly"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
-import { accountToSummary, formatMoney } from "@/services/firefly/transforms"
+import { accountToSummary, formatMoney, isOwnedAccount } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
@@ -26,13 +26,7 @@ export const AccountsScreen: FC<AccountsScreenProps> = () => {
     isRefreshing,
   } = useFirefly()
   const [activeFilter, setActiveFilter] = useState("All")
-  const activeAccounts = accountState.data.filter((account) => {
-    const type = account.attributes.type.toLowerCase()
-    return (
-      account.attributes.active !== false &&
-      (type.includes("asset") || type.includes("cash") || type.includes("liabilit"))
-    )
-  })
+  const activeAccounts = accountState.data.filter(isOwnedAccount)
   const accountSummaries = activeAccounts.map((account) =>
     accountToSummary(account, transactions.data),
   )

@@ -18,6 +18,7 @@ import {
   isExpenseAccount,
   isOwnedAccount,
   isRevenueAccount,
+  isVisibleAccount,
   manualTransactionToStoreRequest,
   manualTransactionToUpdateRequest,
   shiftMonth,
@@ -223,6 +224,22 @@ describe("Firefly transforms", () => {
     expect(isExpenseAccount(expense)).toBe(true)
     expect(isRevenueAccount(revenue)).toBe(true)
     expect(isOwnedAccount(expense)).toBe(false)
+  })
+
+  it("hides only the generated cash account from account selectors", () => {
+    const generatedCash: FireflyAccount = {
+      id: "generated-cash",
+      attributes: { name: " Cash Account ", type: "cash", active: true },
+    }
+    const cashWallet: FireflyAccount = {
+      id: "cash-wallet",
+      attributes: { name: "Cash wallet", type: "cash", active: true },
+    }
+
+    expect(isVisibleAccount(generatedCash)).toBe(false)
+    expect(isOwnedAccount(generatedCash)).toBe(false)
+    expect(isVisibleAccount(cashWallet)).toBe(true)
+    expect(isOwnedAccount(cashWallet)).toBe(true)
   })
 
   it("combines type, search, category, account, and date filters", () => {

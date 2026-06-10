@@ -168,9 +168,14 @@ export function findCashWalletName(accounts: FireflyAccount[]) {
   return findCashWallet(accounts)?.attributes.name ?? "Cash wallet"
 }
 
+export function isVisibleAccount(account: FireflyAccount) {
+  return account.attributes.name.trim().toLowerCase() !== "cash account"
+}
+
 export function isOwnedAccount(account: FireflyAccount) {
   const type = account.attributes.type.toLowerCase()
   return (
+    isVisibleAccount(account) &&
     account.attributes.active !== false &&
     (type.includes("asset") || type.includes("cash") || type.includes("liabilit"))
   )
@@ -178,13 +183,17 @@ export function isOwnedAccount(account: FireflyAccount) {
 
 export function isExpenseAccount(account: FireflyAccount) {
   return (
-    account.attributes.active !== false && account.attributes.type.toLowerCase().includes("expense")
+    isVisibleAccount(account) &&
+    account.attributes.active !== false &&
+    account.attributes.type.toLowerCase().includes("expense")
   )
 }
 
 export function isRevenueAccount(account: FireflyAccount) {
   return (
-    account.attributes.active !== false && account.attributes.type.toLowerCase().includes("revenue")
+    isVisibleAccount(account) &&
+    account.attributes.active !== false &&
+    account.attributes.type.toLowerCase().includes("revenue")
   )
 }
 

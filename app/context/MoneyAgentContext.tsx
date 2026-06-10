@@ -39,6 +39,7 @@ import {
   removeSecret,
   saveSecret,
 } from "@/services/ai"
+import { isVisibleAccount } from "@/services/firefly/transforms"
 import { load, save } from "@/utils/storage"
 import { mergeTagNames } from "@/utils/tags"
 
@@ -123,14 +124,16 @@ function buildSnapshot(
   budgets: FireflyBudget[],
   tags: FireflyTag[],
 ): MoneyAgentEntitySnapshot {
+  const visibleAccounts = accounts.filter(isVisibleAccount)
+
   return {
     syncedAt: nowIso(),
-    accounts: accounts.map(accountToEntity),
+    accounts: visibleAccounts.map(accountToEntity),
     categories: categories.map(simpleEntity),
     budgets: budgets.map(simpleEntity),
     tags: tags.map(simpleEntity),
     currencies: Array.from(
-      new Set(accounts.map((account) => account.attributes.currency_code).filter(Boolean)),
+      new Set(visibleAccounts.map((account) => account.attributes.currency_code).filter(Boolean)),
     ) as string[],
   }
 }

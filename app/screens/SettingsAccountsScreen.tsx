@@ -14,7 +14,7 @@ import { TextField } from "@/components/TextField"
 import { useFirefly } from "@/context/FireflyContext"
 import type { FireflyAccount } from "@/models/firefly"
 import type { SettingsStackScreenProps } from "@/navigators/navigationTypes"
-import { formatMoney } from "@/services/firefly/transforms"
+import { formatMoney, isVisibleAccount } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
@@ -32,7 +32,7 @@ const groupConfig: Record<
 }
 
 export function groupFor(account: FireflyAccount): GroupKey | null {
-  if (account.attributes.name.trim().toLowerCase() === "cash account") return null
+  if (!isVisibleAccount(account)) return null
 
   const type = account.attributes.type.toLowerCase()
   if (
