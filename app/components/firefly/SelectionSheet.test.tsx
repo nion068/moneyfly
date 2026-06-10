@@ -56,7 +56,15 @@ describe("SelectionSheet", () => {
     )
   })
 
-  it("reserves space for the active keyboard", () => {
+  it("uses controller-backed keyboard avoidance", () => {
+    const { getByTestId, getByText } = renderSheet()
+
+    expect(getByTestId("selection-sheet-keyboard-inset").props.behavior).toBe("padding")
+    expect(getByText("Food")).toBeTruthy()
+    expect(getByText("Transport")).toBeTruthy()
+  })
+
+  it("expands the sheet while the keyboard is visible", () => {
     mockUseKeyboardState.mockImplementation((selector) =>
       selector!({
         appearance: "dark",
@@ -69,11 +77,12 @@ describe("SelectionSheet", () => {
       }),
     )
 
-    const { getByTestId, getByText } = renderSheet()
+    const { getByTestId } = renderSheet()
 
-    expect(getByTestId("selection-sheet-keyboard-inset")).toHaveStyle({ paddingBottom: 320 })
-    expect(getByText("Food")).toBeTruthy()
-    expect(getByText("Transport")).toBeTruthy()
+    expect(getByTestId("selection-sheet")).toHaveStyle({
+      maxHeight: "96%",
+      minHeight: "88%",
+    })
   })
 
   it("filters results as the search query changes", () => {

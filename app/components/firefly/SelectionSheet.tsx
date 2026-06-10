@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { FlatList, Modal, Pressable, StyleSheet, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
-import { useKeyboardState } from "react-native-keyboard-controller"
+import { KeyboardAvoidingView, useKeyboardState } from "react-native-keyboard-controller"
 
 import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
@@ -40,8 +40,7 @@ export function SelectionSheet({
 }: SelectionSheetProps) {
   const { themed } = useAppTheme()
   const [search, setSearch] = useState("")
-  const keyboardHeight = useKeyboardState((state) => (state.isVisible ? state.height : 0))
-  const keyboardInset = keyboardHeight
+  const isKeyboardVisible = useKeyboardState((state) => state.isVisible)
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase()
     const matches = query
@@ -90,14 +89,17 @@ export function SelectionSheet({
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View style={themed($overlay)}>
-        <Pressable style={themed($dismissArea)} onPress={onClose} />
-        <View
-          pointerEvents="box-none"
-          style={[themed($keyboardInset), { paddingBottom: keyboardInset }]}
-          testID="selection-sheet-keyboard-inset"
-        >
-          <View style={themed($sheet)}>
+      <KeyboardAvoidingView
+        behavior="padding"
+        style={themed($keyboardView)}
+        testID="selection-sheet-keyboard-inset"
+      >
+        <View style={themed($overlay)}>
+          <Pressable style={themed($dismissArea)} onPress={onClose} />
+          <View
+            style={themed([$sheet, isKeyboardVisible && $sheetWithKeyboard])}
+            testID="selection-sheet"
+          >
             <View style={themed($handle)} />
             <View style={themed($header)}>
               <Text text={title} style={themed($title)} />
@@ -190,10 +192,14 @@ export function SelectionSheet({
             )}
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
+
+const $keyboardView: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
 
 const $overlay: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.overlay80,
@@ -205,11 +211,6 @@ const $dismissArea: ThemedStyle<ViewStyle> = () => ({
   ...StyleSheet.absoluteFillObject,
 })
 
-const $keyboardInset: ThemedStyle<ViewStyle> = () => ({
-  flex: 1,
-  justifyContent: "flex-end",
-})
-
 const $sheet: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   backgroundColor: colors.palette.surfaceContainer,
   borderTopLeftRadius: 28,
@@ -219,6 +220,11 @@ const $sheet: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   minHeight: "48%",
   paddingHorizontal: spacing.md,
   paddingTop: spacing.sm,
+})
+
+const $sheetWithKeyboard: ThemedStyle<ViewStyle> = () => ({
+  maxHeight: "96%",
+  minHeight: "88%",
 })
 
 const $handle: ThemedStyle<ViewStyle> = ({ colors }) => ({
