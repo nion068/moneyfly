@@ -1,8 +1,9 @@
-import { FC, useCallback, useEffect, useRef, useState } from "react"
+import { FC, Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Modal, Pressable, ScrollView, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useScrollToTop } from "@react-navigation/native"
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller"
+import { Circle, Line, Path, Svg } from "react-native-svg"
 
 import { Chip, FinanceCard, MetricPill, ProgressBar } from "@/components/firefly/FinancePrimitives"
 import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
@@ -14,10 +15,14 @@ import type { MainTabScreenProps } from "@/navigators/navigationTypes"
 import { FireflyApi } from "@/services/firefly/api"
 import {
   AnalyticsPeriod,
+  AnalyticsTrendPoint,
+  buildAnalyticsTrend,
   buildMonthlySummary,
   flattenFireflyTransactions,
   formatMoney,
+  getAnalyticsBuckets,
   getAnalyticsRange,
+  getAnalyticsWindow,
   groupExpensesByAccount,
   groupExpensesByCategory,
 } from "@/services/firefly/transforms"
@@ -34,6 +39,14 @@ const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
   { label: "Year", value: "year" },
 ]
 
+type ChartMetric = "income" | "expense" | "netSavings"
+
+const CHART_METRICS: { label: string; value: ChartMetric }[] = [
+  { label: "Income", value: "income" },
+  { label: "Expenses", value: "expense" },
+  { label: "Net", value: "netSavings" },
+]
+
 const monthNames = Array.from({ length: 12 }, (_, month) =>
   new Date(2020, month, 1).toLocaleDateString("en-US", { month: "short" }),
 )
@@ -47,7 +60,6 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     summariesByCurrency,
     selectedCurrency,
     setSelectedCurrency,
-    refresh,
     isRefreshing,
     baseUrl,
     token,
@@ -55,9 +67,12 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   } = useFirefly()
 
   const [period, setPeriod] = useState<AnalyticsPeriod>("month")
+  const [showPeriods, setShowPeriods] = useState(false)
+  const [chartMetric, setChartMetric] = useState<ChartMetric>("expense")
+  const [selectedTrendPoint, setSelectedTrendPoint] = useState<number | null>(null)
   const [rangeTransactions, setRangeTransactions] = useState<LoadState<FlatTransaction[]>>({
-    data: [],
-    status: "idle",
+    data: transactions.data,
+    status: transactions.status,
   })
   const [showYears, setShowYears] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
@@ -102,7 +117,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     if (!isConfigured) return
     const currentFetch = ++fetchRef.current
     setRangeTransactions((prev) => ({ ...prev, status: "loading" }))
-    const range = getAnalyticsRange(selectedMonth, period)
+    const range = getAnalyticsWindow(selectedMonth, period)
     const api = new FireflyApi(baseUrl, token)
     const result = await api.getTransactions(range)
     if (currentFetch !== fetchRef.current) return
@@ -117,22 +132,35 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   }, [baseUrl, isConfigured, period, selectedMonth, token])
 
   useEffect(() => {
-    // For "month" period, reuse the context transactions (already loaded) to avoid a duplicate call
-    if (period === "month") {
-      setRangeTransactions({ data: transactions.data, status: transactions.status })
-      return
-    }
     void loadRange()
-  }, [period, transactions, loadRange])
+  }, [loadRange])
 
   const effectiveCurrency = selectedCurrency ?? summariesByCurrency[0]?.currencyCode
   const currencyTransactions = rangeTransactions.data.filter(
     (t) => !effectiveCurrency || t.currencyCode === effectiveCurrency,
   )
 
-  const summary = buildMonthlySummary(currencyTransactions)
-  const categoryExpenses = groupExpensesByCategory(currencyTransactions)
-  const accountExpenses = groupExpensesByAccount(currencyTransactions)
+  const analyticsBuckets = useMemo(
+    () => getAnalyticsBuckets(selectedMonth, period),
+    [period, selectedMonth],
+  )
+  const activeBucket = analyticsBuckets[analyticsBuckets.length - 1]
+  const activeTransactions = currencyTransactions.filter((transaction) => {
+    const date = transaction.date.slice(0, 10)
+    return date >= activeBucket.start && date <= activeBucket.end
+  })
+  const trendPoints = buildAnalyticsTrend(currencyTransactions, analyticsBuckets)
+  const summary = {
+    ...buildMonthlySummary(activeTransactions),
+    currencySymbol:
+      activeTransactions[0]?.currencySymbol ??
+      summariesByCurrency.find((currency) => currency.currencyCode === effectiveCurrency)
+        ?.currencySymbol ??
+      currencyTransactions[0]?.currencySymbol ??
+      "৳",
+  }
+  const categoryExpenses = groupExpensesByCategory(activeTransactions)
+  const accountExpenses = groupExpensesByAccount(activeTransactions)
 
   const rangeLabel = (() => {
     const range = getAnalyticsRange(selectedMonth, period)
@@ -149,6 +177,10 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   const isLoading = rangeTransactions.status === "loading" && rangeTransactions.data.length === 0
   const isOverlayLoading =
     rangeTransactions.status === "loading" && rangeTransactions.data.length > 0
+
+  useEffect(() => {
+    setSelectedTrendPoint(null)
+  }, [chartMetric, period, selectedMonth])
 
   const navigateHomeFiltered = (filterType: "category" | "account", name: string) => {
     navigation.navigate("Home", {
@@ -167,34 +199,44 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
         >
           {/* Header */}
           <View style={themed($header)}>
-            <View style={themed($headerCopy)}>
+            <View style={themed($headerTopRow)}>
               <Text text="Analytics" style={themed($title)} />
-              <Text text={rangeLabel} style={themed($muted)} />
+              <View style={themed($periodButtonSlot)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select analytics period"
+                  onPress={() => setShowPeriods(true)}
+                  style={({ pressed }) =>
+                    themed([$periodButton, pressed && $calendarButtonPressed])
+                  }
+                >
+                  <Text
+                    text={PERIODS.find((option) => option.value === period)?.label}
+                    style={themed($periodButtonText)}
+                  />
+                  <MaterialCommunityIcons
+                    name="chevron-down"
+                    size={18}
+                    style={themed($calendarIcon)}
+                  />
+                </Pressable>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open month picker"
+                onPress={() => setShowYears(true)}
+                style={({ pressed }) =>
+                  themed([$calendarButton, pressed && $calendarButtonPressed])
+                }
+              >
+                <MaterialCommunityIcons
+                  name="calendar-month-outline"
+                  size={23}
+                  style={themed($calendarIcon)}
+                />
+              </Pressable>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open month picker"
-              onPress={() => setShowYears(true)}
-              style={({ pressed }) => themed([$calendarButton, pressed && $calendarButtonPressed])}
-            >
-              <MaterialCommunityIcons
-                name="calendar-month-outline"
-                size={23}
-                style={themed($calendarIcon)}
-              />
-            </Pressable>
-          </View>
-
-          {/* Period selector */}
-          <View style={themed($periods)}>
-            {PERIODS.map((p) => (
-              <Chip
-                key={p.value}
-                label={p.label}
-                active={period === p.value}
-                onPress={() => setPeriod(p.value)}
-              />
-            ))}
+            <Text text={rangeLabel} style={themed($muted)} />
           </View>
 
           {/* Currency selector (only when multi-currency) */}
@@ -222,15 +264,8 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
               onPress={() => void loadRange()}
             />
           )}
-          {transactions.status === "error" && period === "month" && (
-            <Text
-              text={`${transactions.error?.message ?? "Error"} Tap to retry.`}
-              style={themed($errorText)}
-              onPress={() => void refresh()}
-            />
-          )}
           {rangeTransactions.status !== "loading" &&
-            currencyTransactions.length === 0 &&
+            activeTransactions.length === 0 &&
             !isLoading && <Text text="No transactions for this period." style={themed($muted)} />}
 
           {/* Metric cards */}
@@ -261,14 +296,21 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
             />
           </View>
 
+          <TrendChart
+            points={trendPoints}
+            period={period}
+            metric={chartMetric}
+            selectedPoint={selectedTrendPoint}
+            currencySymbol={summary.currencySymbol}
+            onMetricChange={setChartMetric}
+            onPointSelect={setSelectedTrendPoint}
+          />
+
           {/* Top Spending Breakdown */}
           <FinanceCard>
             <View style={themed($cardHeader)}>
               <Text text="Top Spending Breakdown" style={themed($cardTitle)} />
-              <Text
-                text={selectedMonth.toLocaleDateString("en-US", { month: "long" })}
-                style={themed($muted)}
-              />
+              <Text text={activeBucket.label} style={themed($muted)} />
             </View>
             {categoryExpenses.length > 0 ? (
               <View style={themed($breakdownChart)}>
@@ -425,6 +467,16 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
         </KeyboardAwareScrollView>
       </Screen>
 
+      <PeriodMenu
+        visible={showPeriods}
+        selectedPeriod={period}
+        onSelect={(nextPeriod) => {
+          setPeriod(nextPeriod)
+          setShowPeriods(false)
+        }}
+        onClose={() => setShowPeriods(false)}
+      />
+
       {/* Year picker modal (same pattern as HomeScreen) */}
       <YearPicker
         visible={showYears}
@@ -449,6 +501,207 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
+
+function PeriodMenu({
+  visible,
+  selectedPeriod,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean
+  selectedPeriod: AnalyticsPeriod
+  onSelect: (period: AnalyticsPeriod) => void
+  onClose: () => void
+}) {
+  const { themed } = useAppTheme()
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={themed($periodMenuOverlay)}>
+        <Pressable style={themed($periodMenuDismiss)} onPress={onClose} />
+        <View style={themed($periodMenu)} testID="analytics-period-menu">
+          {PERIODS.map((option) => {
+            const selected = option.value === selectedPeriod
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                onPress={() => onSelect(option.value)}
+                style={themed([$periodMenuItem, selected && $periodMenuItemSelected])}
+              >
+                <Text
+                  text={option.label}
+                  style={themed([$periodMenuText, selected && $periodMenuTextSelected])}
+                />
+                {selected && (
+                  <MaterialCommunityIcons name="check" size={18} style={themed($calendarIcon)} />
+                )}
+              </Pressable>
+            )
+          })}
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+function TrendChart({
+  points,
+  period,
+  metric,
+  selectedPoint,
+  currencySymbol,
+  onMetricChange,
+  onPointSelect,
+}: {
+  points: AnalyticsTrendPoint[]
+  period: AnalyticsPeriod
+  metric: ChartMetric
+  selectedPoint: number | null
+  currencySymbol: string
+  onMetricChange: (metric: ChartMetric) => void
+  onPointSelect: (index: number) => void
+}) {
+  const {
+    themed,
+    theme: { colors },
+  } = useAppTheme()
+  const [width, setWidth] = useState(300)
+  const chartHeight = 160
+  const horizontalPadding = 16
+  const verticalPadding = 16
+  const values = points.map((point) => point[metric])
+  const isEmpty = values.every((value) => value === 0)
+  const minimum = Math.min(0, ...values)
+  const maximum = Math.max(0, ...values)
+  const valueRange = maximum - minimum || 1
+  const plotWidth = Math.max(1, width - horizontalPadding * 2)
+  const plotHeight = chartHeight - verticalPadding * 2
+  const coordinates = values.map((value, index) => ({
+    x: horizontalPadding + (index / Math.max(1, values.length - 1)) * plotWidth,
+    y: verticalPadding + ((maximum - value) / valueRange) * plotHeight,
+  }))
+  const path = coordinates
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ")
+  const zeroY = verticalPadding + ((maximum - 0) / valueRange) * plotHeight
+  const lineColor =
+    metric === "income"
+      ? colors.tint
+      : metric === "expense"
+        ? colors.palette.tertiary300
+        : colors.palette.secondary300
+  const selected = selectedPoint === null ? null : points[selectedPoint]
+  const periodLabel =
+    period === "week"
+      ? "weeks"
+      : period === "month"
+        ? "months"
+        : period === "quarter"
+          ? "quarters"
+          : "years"
+
+  return (
+    <FinanceCard>
+      <View style={themed($trendHeader)}>
+        <View>
+          <Text text="Cash Flow Trend" style={themed($cardTitle)} />
+          <Text text={`Last 6 ${periodLabel}`} style={themed($muted)} />
+        </View>
+        {selected && (
+          <View style={themed($trendValue)} testID="trend-selected-value">
+            <Text text={selected.label} style={themed($trendValueLabel)} />
+            <Text
+              text={formatMoney(selected[metric], currencySymbol)}
+              style={[themed($trendValueAmount), { color: lineColor }]}
+            />
+          </View>
+        )}
+      </View>
+
+      <View style={themed($trendMetricTabs)}>
+        {CHART_METRICS.map((option) => {
+          const active = option.value === metric
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              testID={`trend-metric-${option.value}`}
+              onPress={() => onMetricChange(option.value)}
+              style={themed([$trendMetricTab, active && $trendMetricTabActive])}
+            >
+              <Text
+                text={option.label}
+                style={themed([$trendMetricText, active && $trendMetricTextActive])}
+              />
+            </Pressable>
+          )
+        })}
+      </View>
+
+      {isEmpty ? (
+        <View style={themed($trendEmpty)}>
+          <Text text="No activity for these periods." style={themed($muted)} />
+        </View>
+      ) : (
+        <>
+          <View
+            testID="analytics-trend-chart"
+            style={[themed($trendPlot), { height: chartHeight }]}
+            onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+          >
+            <Svg width={width} height={chartHeight}>
+              <Line
+                x1={horizontalPadding}
+                x2={width - horizontalPadding}
+                y1={zeroY}
+                y2={zeroY}
+                stroke={colors.palette.stroke}
+                strokeWidth={1}
+              />
+              <Path
+                d={path}
+                fill="none"
+                stroke={lineColor}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                testID="trend-line"
+              />
+              {coordinates.map((point, index) => (
+                <Fragment key={points[index].key}>
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={selectedPoint === index ? 7 : 5}
+                    fill={lineColor}
+                    stroke={colors.palette.surfaceContainer}
+                    strokeWidth={3}
+                  />
+                  <Circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={16}
+                    fill="transparent"
+                    onPress={() => onPointSelect(index)}
+                    testID={`trend-point-${index}`}
+                  />
+                </Fragment>
+              ))}
+            </Svg>
+          </View>
+          <View style={themed($trendLabels)}>
+            {points.map((point) => (
+              <Text key={point.key} text={point.label} style={themed($trendLabel)} />
+            ))}
+          </View>
+        </>
+      )}
+    </FinanceCard>
+  )
+}
 
 function BreakdownBar({
   category,
@@ -656,15 +909,19 @@ const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   paddingBottom: spacing.xxxl,
 })
 
-const $header: ThemedStyle<ViewStyle> = () => ({
-  alignItems: "center",
-  flexDirection: "row",
-  justifyContent: "space-between",
+const $header: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.xxxs,
 })
 
-const $headerCopy: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+const $headerTopRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.sm,
+})
+
+const $periodButtonSlot: ThemedStyle<ViewStyle> = () => ({
   flex: 1,
-  gap: spacing.xxxs,
+  minWidth: 0,
 })
 
 const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
@@ -699,13 +956,24 @@ const $calendarIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.tint,
 })
 
-const $periods: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+const $periodButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
   backgroundColor: colors.palette.surfaceContainer,
-  borderRadius: 22,
+  borderColor: colors.palette.stroke,
+  borderRadius: 16,
+  borderWidth: 1,
   flexDirection: "row",
-  gap: spacing.xs,
-  justifyContent: "space-between",
-  padding: spacing.xs,
+  gap: spacing.xxs,
+  height: 44,
+  justifyContent: "center",
+  paddingHorizontal: spacing.md,
+  width: "100%",
+})
+
+const $periodButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 14,
 })
 
 const $currencyRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
@@ -721,6 +989,83 @@ const $errorText: ThemedStyle<TextStyle> = ({ colors }) => ({
 const $metricRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   gap: spacing.sm,
+})
+
+const $trendHeader: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "flex-start",
+  flexDirection: "row",
+  justifyContent: "space-between",
+})
+
+const $trendValue: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "flex-end",
+})
+
+const $trendValueLabel: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 12,
+})
+
+const $trendValueAmount: ThemedStyle<TextStyle> = ({ typography }) => ({
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+})
+
+const $trendMetricTabs: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.palette.surfaceContainerHighest,
+  borderRadius: 14,
+  flexDirection: "row",
+  gap: spacing.xxs,
+  marginTop: spacing.md,
+  padding: spacing.xxs,
+})
+
+const $trendMetricTab: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  borderRadius: 11,
+  flex: 1,
+  paddingHorizontal: spacing.xs,
+  paddingVertical: spacing.xs,
+})
+
+const $trendMetricTabActive: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainer,
+})
+
+const $trendMetricText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.textDim,
+  fontFamily: typography.primary.medium,
+  fontSize: 12,
+})
+
+const $trendMetricTextActive: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+})
+
+const $trendPlot: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  marginTop: spacing.sm,
+  overflow: "hidden",
+  width: "100%",
+})
+
+const $trendLabels: ThemedStyle<ViewStyle> = () => ({
+  flexDirection: "row",
+  justifyContent: "space-between",
+})
+
+const $trendLabel: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  flex: 1,
+  fontSize: 10,
+  textAlign: "center",
+})
+
+const $trendEmpty: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 140,
+  paddingVertical: spacing.lg,
 })
 
 const $cardHeader: ThemedStyle<ViewStyle> = () => ({
@@ -899,6 +1244,59 @@ const $viewAllText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.tint,
   fontFamily: typography.primary.medium,
   fontSize: 13,
+})
+
+const $periodMenuOverlay: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
+
+const $periodMenuDismiss: ThemedStyle<ViewStyle> = () => ({
+  bottom: 0,
+  left: 0,
+  position: "absolute",
+  right: 0,
+  top: 0,
+})
+
+const $periodMenu: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.palette.surfaceContainerHigh,
+  borderColor: colors.palette.stroke,
+  borderRadius: 16,
+  borderWidth: 1,
+  elevation: 8,
+  padding: spacing.xs,
+  position: "absolute",
+  right: 72,
+  shadowColor: colors.palette.neutral900,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.3,
+  shadowRadius: 12,
+  top: 70,
+  width: 142,
+})
+
+const $periodMenuItem: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  borderRadius: 12,
+  flexDirection: "row",
+  justifyContent: "space-between",
+  minHeight: 42,
+  paddingHorizontal: spacing.sm,
+})
+
+const $periodMenuItemSelected: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHighest,
+})
+
+const $periodMenuText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.textDim,
+  fontFamily: typography.primary.medium,
+  fontSize: 14,
+})
+
+const $periodMenuTextSelected: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
 })
 
 // ─── Year/Month picker styles (match HomeScreen pattern) ─────────────────────

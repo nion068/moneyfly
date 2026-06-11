@@ -2,6 +2,7 @@ import type { FireflyAccount, FireflyTransaction, TransactionDraft } from "@/mod
 import { normalizeBaseUrl as normalizeApiBaseUrl } from "@/services/firefly/api"
 import {
   accountToSummary,
+  buildAnalyticsTrend,
   buildMonthlySummary,
   buildSummariesByCurrency,
   clampMonthToPresent,
@@ -11,7 +12,9 @@ import {
   flattenFireflyTransactions,
   formatDateKey,
   formatMoney,
+  getAnalyticsBuckets,
   getAnalyticsRange,
+  getAnalyticsWindow,
   getTransactionIconName,
   getMonthRange,
   groupExpensesByAccount,
@@ -407,6 +410,49 @@ describe("getAnalyticsRange", () => {
       start: "2026-06-29",
       end: "2026-07-05",
     })
+  })
+})
+
+describe("analytics trend buckets", () => {
+  it("builds six chronological buckets ending at the selected period", () => {
+    expect(
+      getAnalyticsBuckets(new Date(2026, 5, 1), "month").map((bucket) => bucket.start),
+    ).toEqual(["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01", "2026-05-01", "2026-06-01"])
+    expect(getAnalyticsBuckets(new Date(2026, 5, 1), "week")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ start: "2026-04-27", end: "2026-05-03" }),
+        expect.objectContaining({ start: "2026-06-01", end: "2026-06-07" }),
+      ]),
+    )
+    expect(
+      getAnalyticsBuckets(new Date(2026, 5, 1), "quarter").map((bucket) => bucket.start),
+    ).toEqual(["2025-01-01", "2025-04-01", "2025-07-01", "2025-10-01", "2026-01-01", "2026-04-01"])
+    expect(getAnalyticsBuckets(new Date(2026, 5, 1), "year").map((bucket) => bucket.start)).toEqual(
+      ["2021-01-01", "2022-01-01", "2023-01-01", "2024-01-01", "2025-01-01", "2026-01-01"],
+    )
+  })
+
+  it("returns one expanded fetch window for all six buckets", () => {
+    expect(getAnalyticsWindow(new Date(2026, 5, 1), "month")).toEqual({
+      start: "2026-01-01",
+      end: "2026-06-30",
+    })
+  })
+
+  it("aggregates income, expenses, and negative net savings with zero-filled periods", () => {
+    const transactions = flattenFireflyTransactions(groupedTransactions)
+    const buckets = getAnalyticsBuckets(new Date(2026, 5, 1), "month")
+    const trend = buildAnalyticsTrend(transactions, buckets)
+
+    expect(trend.slice(0, 5).every((point) => point.income === 0 && point.expense === 0)).toBe(true)
+    expect(trend[5]).toMatchObject({
+      income: 5000,
+      expense: 450,
+      netSavings: 4550,
+    })
+
+    const expensesOnly = buildAnalyticsTrend([transactions[0]], buckets)
+    expect(expensesOnly[5].netSavings).toBe(-450)
   })
 })
 

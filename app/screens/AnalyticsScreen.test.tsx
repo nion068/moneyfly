@@ -1,7 +1,7 @@
 import { ReactElement } from "react"
 import { NavigationContainer } from "@react-navigation/native"
 import { createNativeStackNavigator } from "@react-navigation/native-stack"
-import { fireEvent, render, waitFor } from "@testing-library/react-native"
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 
 import { AnalyticsScreen } from "@/screens/AnalyticsScreen"
@@ -54,6 +54,30 @@ const baseTransaction = {
   currencyCode: "BDT",
   currencySymbol: "৳",
 }
+
+const toFireflyTransactions = (flatTransactions: (typeof baseTransaction)[]) =>
+  flatTransactions.map((transaction) => ({
+    id: transaction.groupId,
+    attributes: {
+      transactions: [
+        {
+          transaction_journal_id: transaction.journalId,
+          date: transaction.date,
+          amount: String(transaction.amount),
+          description: transaction.description,
+          type: transaction.type,
+          source_id: transaction.sourceId,
+          source_name: transaction.sourceName,
+          destination_id: transaction.destinationId,
+          destination_name: transaction.destinationName,
+          category_name: transaction.categoryName,
+          tags: transaction.tags,
+          currency_code: transaction.currencyCode,
+          currency_symbol: transaction.currencySymbol,
+        },
+      ],
+    },
+  }))
 
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
@@ -159,27 +183,59 @@ const renderWithProviders = (ui: ReactElement) => {
 describe("AnalyticsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockGetTransactions.mockResolvedValue({ kind: "ok", data: [] })
     mockBaseContextValue.transactions.data = [baseTransaction]
+    mockBaseContextValue.selectedCurrency = "BDT"
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([baseTransaction]),
+    })
   })
 
-  it("renders with Month as the default selected period", () => {
-    const { getByText } = renderWithProviders(
+  it("shows Month in the header dropdown and exposes all periods when opened", () => {
+    const { getByLabelText, getByText, queryByText } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
-    // Month chip should be present and contextually active
+
     expect(getByText("Month")).toBeTruthy()
+    expect(queryByText("Week")).toBeNull()
+
+    fireEvent.press(getByLabelText("Select analytics period"))
+
     expect(getByText("Week")).toBeTruthy()
     expect(getByText("Quarter")).toBeTruthy()
     expect(getByText("Year")).toBeTruthy()
   })
 
-  it("shows Income, Expenses, and Saved metric cards", () => {
-    const { getByText } = renderWithProviders(
+  it("updates the trend subtitle for the selected period", () => {
+    const { getByLabelText, getByText, queryByText } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
-    expect(getByText("Income")).toBeTruthy()
-    expect(getByText("Expenses")).toBeTruthy()
+
+    expect(getByText("Last 6 months")).toBeTruthy()
+    fireEvent.press(getByLabelText("Select analytics period"))
+    fireEvent.press(getByText("Quarter"))
+
+    expect(getByText("Last 6 quarters")).toBeTruthy()
+    expect(queryByText("Last 6 months")).toBeNull()
+  })
+
+  it("requests the six-month window on initial load", async () => {
+    renderWithProviders(<AnalyticsScreen navigation={navigationProp} route={{} as never} />)
+
+    await waitFor(() => {
+      expect(mockGetTransactions).toHaveBeenCalledWith({
+        start: "2026-01-01",
+        end: "2026-06-30",
+      })
+    })
+  })
+
+  it("shows Income, Expenses, and Saved metric cards", () => {
+    const { getAllByText, getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+    expect(getAllByText("Income").length).toBeGreaterThan(0)
+    expect(getAllByText("Expenses").length).toBeGreaterThan(0)
     expect(getByText("Saved")).toBeTruthy()
   })
 
@@ -200,45 +256,49 @@ describe("AnalyticsScreen", () => {
   })
 
   it("switching period to Week calls getTransactions with correct range", async () => {
-    const { getByText } = renderWithProviders(
+    const { getByLabelText, getByText, queryByTestId } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
+    fireEvent.press(getByLabelText("Select analytics period"))
     fireEvent.press(getByText("Week"))
+    expect(queryByTestId("analytics-period-menu")).toBeNull()
     await waitFor(() => {
-      expect(mockGetTransactions).toHaveBeenCalledWith(
-        expect.objectContaining({
-          start: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-          end: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-        }),
-      )
+      expect(mockGetTransactions).toHaveBeenCalledWith({
+        start: "2026-04-27",
+        end: "2026-06-07",
+      })
     })
   })
 
-  it("switching period to Quarter calls getTransactions with start of quarter", async () => {
-    const { getByText } = renderWithProviders(
+  it("switching period to Quarter requests six quarters", async () => {
+    const { getByLabelText, getByText } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
+    fireEvent.press(getByLabelText("Select analytics period"))
     fireEvent.press(getByText("Quarter"))
     await waitFor(() => {
-      expect(mockGetTransactions).toHaveBeenCalledWith(
-        expect.objectContaining({ start: "2026-04-01", end: "2026-06-30" }),
-      )
+      expect(mockGetTransactions).toHaveBeenCalledWith({
+        start: "2025-01-01",
+        end: "2026-06-30",
+      })
     })
   })
 
-  it("switching period to Year calls getTransactions with full year range", async () => {
-    const { getByText } = renderWithProviders(
+  it("switching period to Year requests six years", async () => {
+    const { getByLabelText, getByText } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
+    fireEvent.press(getByLabelText("Select analytics period"))
     fireEvent.press(getByText("Year"))
     await waitFor(() => {
-      expect(mockGetTransactions).toHaveBeenCalledWith(
-        expect.objectContaining({ start: "2026-01-01", end: "2026-12-31" }),
-      )
+      expect(mockGetTransactions).toHaveBeenCalledWith({
+        start: "2021-01-01",
+        end: "2026-12-31",
+      })
     })
   })
 
-  it("shows an error message with retry when API returns an error for non-month periods", async () => {
+  it("shows an error message with retry when the analytics request fails", async () => {
     mockGetTransactions.mockResolvedValue({
       kind: "network",
       message: "Could not reach the Firefly server.",
@@ -246,10 +306,67 @@ describe("AnalyticsScreen", () => {
     const { getByText } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
-    fireEvent.press(getByText("Week"))
     await waitFor(() => {
       expect(getByText(/Tap to retry/)).toBeTruthy()
     })
+  })
+
+  it("switches among expense, income, and net chart metrics", () => {
+    const { getByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    expect(getByTestId("trend-metric-expense").props.accessibilityState.selected).toBe(true)
+    fireEvent.press(getByTestId("trend-metric-income"))
+    expect(getByTestId("trend-metric-income").props.accessibilityState.selected).toBe(true)
+    fireEvent.press(getByTestId("trend-metric-netSavings"))
+    expect(getByTestId("trend-metric-netSavings").props.accessibilityState.selected).toBe(true)
+  })
+
+  it("shows the selected chart point label and formatted value", () => {
+    const { getByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByTestId("trend-point-5"))
+
+    const selectedValue = within(getByTestId("trend-selected-value"))
+    expect(selectedValue.getByText("Jun 26")).toBeTruthy()
+    expect(selectedValue.getByText("৳ 450")).toBeTruthy()
+  })
+
+  it("builds the chart from only the selected currency", () => {
+    const usdTransaction = {
+      ...baseTransaction,
+      groupId: "usd-group",
+      journalId: "usd-journal",
+      amount: 1000,
+      currencyCode: "USD",
+      currencySymbol: "$",
+    }
+    mockBaseContextValue.transactions.data = [baseTransaction, usdTransaction]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([baseTransaction, usdTransaction]),
+    })
+    const { getByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByTestId("trend-point-5"))
+
+    expect(within(getByTestId("trend-selected-value")).getByText("৳ 450")).toBeTruthy()
+  })
+
+  it("shows a neutral chart state when the selected metric has no activity", () => {
+    mockBaseContextValue.transactions.data = []
+    mockGetTransactions.mockResolvedValue({ kind: "ok", data: [] })
+
+    const { getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    expect(getByText("No activity for these periods.")).toBeTruthy()
   })
 
   it("By Category section is expanded by default and shows category names", () => {
@@ -325,6 +442,10 @@ describe("AnalyticsScreen", () => {
       categoryName: `Category ${index + 1}`,
       description: `Expense ${index + 1}`,
     }))
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions(mockBaseContextValue.transactions.data),
+    })
 
     const { getAllByTestId, getAllByText, getByTestId, queryByTestId } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
@@ -350,6 +471,7 @@ describe("AnalyticsScreen", () => {
 
   it("shows a neutral empty state when there are no expenses", () => {
     mockBaseContextValue.transactions.data = []
+    mockGetTransactions.mockResolvedValue({ kind: "ok", data: [] })
 
     const { getByText, queryAllByTestId } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,

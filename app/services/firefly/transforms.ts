@@ -274,25 +274,36 @@ export function accountToSummary(
 
 export type AnalyticsPeriod = "week" | "month" | "quarter" | "year"
 
+export type AnalyticsBucket = {
+  key: string
+  label: string
+  start: string
+  end: string
+}
+
+export type AnalyticsTrendPoint = AnalyticsBucket & {
+  income: number
+  expense: number
+  netSavings: number
+}
+
+const formatDateOnly = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`
+
+const parseDateOnly = (value: string) => new Date(`${value}T12:00:00`)
+
 export function getMonthRange(month: Date) {
   const year = month.getFullYear()
   const monthIndex = month.getMonth()
   const start = new Date(year, monthIndex, 1)
   const end = new Date(year, monthIndex + 1, 0)
-  const format = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-      date.getDate(),
-    ).padStart(2, "0")}`
 
-  return { start: format(start), end: format(end) }
+  return { start: formatDateOnly(start), end: formatDateOnly(end) }
 }
 
 export function getAnalyticsRange(anchor: Date, period: AnalyticsPeriod) {
-  const format = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-      date.getDate(),
-    ).padStart(2, "0")}`
-
   const year = anchor.getFullYear()
   const monthIndex = anchor.getMonth()
 
@@ -308,18 +319,105 @@ export function getAnalyticsRange(anchor: Date, period: AnalyticsPeriod) {
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
     const monday = new Date(year, monthIndex, 1 + mondayOffset)
     const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
-    return { start: format(monday), end: format(sunday) }
+    return { start: formatDateOnly(monday), end: formatDateOnly(sunday) }
   }
 
   if (period === "quarter") {
     const quarterStart = Math.floor(monthIndex / 3) * 3
     const start = new Date(year, quarterStart, 1)
     const end = new Date(year, quarterStart + 3, 0)
-    return { start: format(start), end: format(end) }
+    return { start: formatDateOnly(start), end: formatDateOnly(end) }
   }
 
   // year
-  return { start: format(new Date(year, 0, 1)), end: format(new Date(year, 11, 31)) }
+  return {
+    start: formatDateOnly(new Date(year, 0, 1)),
+    end: formatDateOnly(new Date(year, 11, 31)),
+  }
+}
+
+export function getAnalyticsBuckets(anchor: Date, period: AnalyticsPeriod): AnalyticsBucket[] {
+  const currentRange = getAnalyticsRange(anchor, period)
+
+  return Array.from({ length: 6 }, (_, index) => {
+    const offset = index - 5
+    let bucketAnchor: Date
+
+    if (period === "week") {
+      const currentStart = parseDateOnly(currentRange.start)
+      bucketAnchor = new Date(
+        currentStart.getFullYear(),
+        currentStart.getMonth(),
+        currentStart.getDate() + offset * 7,
+      )
+    } else if (period === "month") {
+      bucketAnchor = new Date(anchor.getFullYear(), anchor.getMonth() + offset, 1)
+    } else if (period === "quarter") {
+      const quarterStart = Math.floor(anchor.getMonth() / 3) * 3
+      bucketAnchor = new Date(anchor.getFullYear(), quarterStart + offset * 3, 1)
+    } else {
+      bucketAnchor = new Date(anchor.getFullYear() + offset, 0, 1)
+    }
+
+    const range =
+      period === "week"
+        ? {
+            start: formatDateOnly(bucketAnchor),
+            end: formatDateOnly(
+              new Date(
+                bucketAnchor.getFullYear(),
+                bucketAnchor.getMonth(),
+                bucketAnchor.getDate() + 6,
+              ),
+            ),
+          }
+        : getAnalyticsRange(bucketAnchor, period)
+    const startDate = parseDateOnly(range.start)
+    const label =
+      period === "week"
+        ? startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : period === "month"
+          ? startDate.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+          : period === "quarter"
+            ? `Q${Math.floor(startDate.getMonth() / 3) + 1} ${String(startDate.getFullYear()).slice(
+                -2,
+              )}`
+            : String(startDate.getFullYear())
+
+    return {
+      key: `${period}-${range.start}`,
+      label,
+      ...range,
+    }
+  })
+}
+
+export function getAnalyticsWindow(anchor: Date, period: AnalyticsPeriod) {
+  const buckets = getAnalyticsBuckets(anchor, period)
+  return {
+    start: buckets[0].start,
+    end: buckets[buckets.length - 1].end,
+  }
+}
+
+export function buildAnalyticsTrend(
+  transactions: FlatTransaction[],
+  buckets: AnalyticsBucket[],
+): AnalyticsTrendPoint[] {
+  return buckets.map((bucket) => {
+    const bucketTransactions = transactions.filter((transaction) => {
+      const date = transaction.date.slice(0, 10)
+      return date >= bucket.start && date <= bucket.end
+    })
+    const summary = buildMonthlySummary(bucketTransactions)
+
+    return {
+      ...bucket,
+      income: summary.totalIncome,
+      expense: summary.totalExpense,
+      netSavings: summary.saved,
+    }
+  })
 }
 
 export function shiftMonth(month: Date, offset: number) {
