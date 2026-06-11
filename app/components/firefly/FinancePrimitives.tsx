@@ -39,6 +39,7 @@ type MetricPillProps = {
   compact?: boolean
   centered?: boolean
   dense?: boolean
+  singleLineValue?: boolean
 }
 
 export function MetricPill({
@@ -49,6 +50,7 @@ export function MetricPill({
   compact = false,
   centered = false,
   dense = false,
+  singleLineValue = false,
 }: MetricPillProps) {
   const { themed } = useAppTheme()
 
@@ -68,10 +70,15 @@ export function MetricPill({
       <Text text={label} style={themed([$mutedLabel, dense && $denseMutedLabel])} />
       <Text
         text={value}
+        testID={`metric-value-${label.toLowerCase()}`}
+        numberOfLines={singleLineValue ? 1 : undefined}
+        adjustsFontSizeToFit={singleLineValue}
+        minimumFontScale={singleLineValue ? 0.65 : undefined}
         style={themed([
           $metricValue,
           compact && $compactMetricValue,
           dense && $denseMetricValue,
+          singleLineValue && $singleLineMetricValue,
           $metricValueTone[tone],
         ])}
       />
@@ -237,6 +244,12 @@ const $compactMetricValue: ThemedStyle<TextStyle> = () => ({
 const $denseMetricValue: ThemedStyle<TextStyle> = () => ({
   fontSize: 15,
   lineHeight: 18,
+})
+
+const $singleLineMetricValue: ThemedStyle<TextStyle> = () => ({
+  alignSelf: "stretch",
+  textAlign: "center",
+  width: "100%",
 })
 
 const $metricValueTone: Record<MetricPillProps["tone"], ThemedStyle<TextStyle>> = {

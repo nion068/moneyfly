@@ -38,6 +38,22 @@ jest.mock("react-native-keyboard-controller", () => {
 })
 
 const mockNavigate = jest.fn()
+const baseTransaction = {
+  groupId: "g1",
+  journalId: "j1",
+  date: "2026-06-04T10:00:00+06:00",
+  amount: 450,
+  description: "KFC",
+  type: "withdrawal" as const,
+  sourceName: "bKash",
+  destinationName: "KFC",
+  categoryName: "Food & Dining",
+  sourceId: "src-1",
+  destinationId: "dst-1",
+  tags: [],
+  currencyCode: "BDT",
+  currencySymbol: "৳",
+}
 
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
@@ -49,24 +65,7 @@ const mockBaseContextValue = {
   selectedMonth: new Date(2026, 5, 1), // June 2026
   setSelectedMonth: jest.fn(),
   transactions: {
-    data: [
-      {
-        groupId: "g1",
-        journalId: "j1",
-        date: "2026-06-04T10:00:00+06:00",
-        amount: 450,
-        description: "KFC",
-        type: "withdrawal" as const,
-        sourceName: "bKash",
-        destinationName: "KFC",
-        categoryName: "Food & Dining",
-        sourceId: "src-1",
-        destinationId: "dst-1",
-        tags: [],
-        currencyCode: "BDT",
-        currencySymbol: "৳",
-      },
-    ],
+    data: [baseTransaction],
     status: "ready" as const,
   },
   summariesByCurrency: [
@@ -161,6 +160,7 @@ describe("AnalyticsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockGetTransactions.mockResolvedValue({ kind: "ok", data: [] })
+    mockBaseContextValue.transactions.data = [baseTransaction]
   })
 
   it("renders with Month as the default selected period", () => {
@@ -181,6 +181,22 @@ describe("AnalyticsScreen", () => {
     expect(getByText("Income")).toBeTruthy()
     expect(getByText("Expenses")).toBeTruthy()
     expect(getByText("Saved")).toBeTruthy()
+  })
+
+  it("keeps all metric values on one line and allows them to shrink to fit", () => {
+    const { getByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    for (const label of ["income", "expenses", "saved"]) {
+      expect(getByTestId(`metric-value-${label}`).props).toEqual(
+        expect.objectContaining({
+          adjustsFontSizeToFit: true,
+          minimumFontScale: 0.65,
+          numberOfLines: 1,
+        }),
+      )
+    }
   })
 
   it("switching period to Week calls getTransactions with correct range", async () => {
@@ -250,7 +266,7 @@ describe("AnalyticsScreen", () => {
     )
     expect(getAllByText("Food & Dining").length).toBe(2)
     fireEvent.press(getByText("By Category"))
-    expect(getAllByText("Food & Dining").length).toBe(1) // only in legend
+    expect(getAllByText("Food & Dining").length).toBe(1) // only in the chart
     fireEvent.press(getByText("By Category"))
     expect(getAllByText("Food & Dining").length).toBe(2)
   })
@@ -300,7 +316,50 @@ describe("AnalyticsScreen", () => {
     expect(getByLabelText("Open month picker")).toBeTruthy()
   })
 
-  it("pressing a legend item highlights the slice and scrolls to the category", async () => {
+  it("shows the top six expense categories in descending order with amounts and percentages", () => {
+    mockBaseContextValue.transactions.data = Array.from({ length: 7 }, (_, index) => ({
+      ...baseTransaction,
+      groupId: `g${index}`,
+      journalId: `j${index}`,
+      amount: (index + 1) * 100,
+      categoryName: `Category ${index + 1}`,
+      description: `Expense ${index + 1}`,
+    }))
+
+    const { getAllByTestId, getAllByText, getByTestId, queryByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+    const rows = getAllByTestId(/^breakdown-row-/)
+
+    expect(rows).toHaveLength(6)
+    expect(rows.map((row) => row.props.testID)).toEqual([
+      "breakdown-row-Category 7",
+      "breakdown-row-Category 6",
+      "breakdown-row-Category 5",
+      "breakdown-row-Category 4",
+      "breakdown-row-Category 3",
+      "breakdown-row-Category 2",
+    ])
+    expect(queryByTestId("breakdown-row-Category 1")).toBeNull()
+    expect(getAllByText("৳ 700").length).toBeGreaterThan(0)
+    expect(getAllByText("25%").length).toBeGreaterThan(0)
+    expect(getByTestId("breakdown-bar-Category 7").props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ width: "25%" })]),
+    )
+  })
+
+  it("shows a neutral empty state when there are no expenses", () => {
+    mockBaseContextValue.transactions.data = []
+
+    const { getByText, queryAllByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    expect(getByText("No expenses for this period.")).toBeTruthy()
+    expect(queryAllByTestId(/^breakdown-row-/)).toHaveLength(0)
+  })
+
+  it("pressing a breakdown bar selects it, expands details, and scrolls to the category", async () => {
     const { getByTestId, getByText } = renderWithProviders(
       <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
     )
@@ -308,31 +367,15 @@ describe("AnalyticsScreen", () => {
     fireEvent(getByTestId("category-card-Food & Dining"), "layout", {
       nativeEvent: { layout: { y: 240 } },
     })
-    fireEvent.press(getByTestId("legend-row-Food & Dining"))
+    fireEvent.press(getByTestId("breakdown-row-Food & Dining"))
 
     await waitFor(() => {
       expect(getByText("KFC")).toBeTruthy()
       expect(mockScrollTo).toHaveBeenCalledWith({ y: 230, animated: true })
-      expect(getByTestId("donut-slice-Food & Dining").props.strokeWidth).toBe(18)
     })
 
-    const legendRowStyle = getByTestId("legend-row-Food & Dining").props.style
-    const legendRowStyles = Array.isArray(legendRowStyle) ? legendRowStyle : [legendRowStyle]
-    expect(legendRowStyles.some((style) => style?.backgroundColor)).toBe(true)
-  })
-
-  it("pressing the donut slice only highlights the category", async () => {
-    const { getByTestId, queryByText } = renderWithProviders(
-      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
-    )
-
-    fireEvent.press(getByTestId("donut-slice-Food & Dining"))
-
-    await waitFor(() => {
-      expect(mockScrollTo).not.toHaveBeenCalled()
-      expect(getByTestId("donut-slice-Food & Dining").props.strokeWidth).toBe(18)
-      expect(getByTestId("legend-row-Food & Dining").props.style).toBeTruthy()
-      expect(queryByText("KFC")).toBeNull()
-    })
+    const rowStyle = getByTestId("breakdown-row-Food & Dining").props.style
+    const rowStyles = Array.isArray(rowStyle) ? rowStyle : [rowStyle]
+    expect(rowStyles.some((style) => style?.backgroundColor)).toBe(true)
   })
 })

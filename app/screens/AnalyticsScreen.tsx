@@ -3,7 +3,6 @@ import { Modal, Pressable, ScrollView, TextStyle, View, ViewStyle } from "react-
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useScrollToTop } from "@react-navigation/native"
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller"
-import { Svg, Circle } from "react-native-svg"
 
 import { Chip, FinanceCard, MetricPill, ProgressBar } from "@/components/firefly/FinancePrimitives"
 import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
@@ -40,10 +39,7 @@ const monthNames = Array.from({ length: 12 }, (_, month) =>
 )
 
 export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
-  const {
-    themed,
-    theme: { colors },
-  } = useAppTheme()
+  const { themed } = useAppTheme()
   const {
     selectedMonth,
     setSelectedMonth,
@@ -85,10 +81,6 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
         scrollRef.current.scrollTo({ y: y - 10, animated: true })
       }
     }, 100)
-  }, [])
-
-  const handleCategoryHighlight = useCallback((categoryName: string) => {
-    setSelectedCategory((prev) => (prev === categoryName ? null : categoryName))
   }, [])
 
   const fetchRef = useRef(0)
@@ -248,104 +240,53 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
               value={formatMoney(summary.totalIncome, summary.currencySymbol)}
               tone="income"
               icon="↙"
+              centered
+              singleLineValue
             />
             <MetricPill
               label="Expenses"
               value={formatMoney(summary.totalExpense, summary.currencySymbol)}
               tone="expense"
               icon="↗"
+              centered
+              singleLineValue
             />
             <MetricPill
               label="Saved"
               value={`${formatDisplayNumber(summary.savingsRate)}%`}
               tone="saved"
               icon="✿"
+              centered
+              singleLineValue
             />
           </View>
 
-          {/* Spending Breakdown */}
+          {/* Top Spending Breakdown */}
           <FinanceCard>
             <View style={themed($cardHeader)}>
-              <Text text="Spending Breakdown" style={themed($cardTitle)} />
+              <Text text="Top Spending Breakdown" style={themed($cardTitle)} />
               <Text
                 text={selectedMonth.toLocaleDateString("en-US", { month: "long" })}
                 style={themed($muted)}
               />
             </View>
-            <View style={themed($breakdownRow)}>
-              <View style={themed($donutContainer)}>
-                <Svg width={124} height={124} viewBox="0 0 120 120">
-                  {(() => {
-                    const totalExpense = summary.totalExpense
-                    if (totalExpense === 0) {
-                      return (
-                        <Circle
-                          cx={60}
-                          cy={60}
-                          r={45}
-                          stroke={colors.palette.neutral300}
-                          strokeWidth={12}
-                          fill="none"
-                        />
-                      )
-                    }
-
-                    let accumulatedPercent = 0
-                    const radius = 45
-                    const strokeWidthDefault = 12
-                    const strokeWidthSelected = 18
-                    const center = 60
-                    const circumference = 2 * Math.PI * radius
-
-                    return categoryExpenses
-                      .filter((c) => c.amount > 0)
-                      .map((category) => {
-                        const isSelected = selectedCategory === category.name
-                        const percentage = (category.amount / totalExpense) * 100
-                        const strokeLength = (percentage / 100) * circumference
-                        const strokeDasharray = `${strokeLength} ${circumference}`
-                        const strokeDashoffset = -(accumulatedPercent / 100) * circumference
-
-                        accumulatedPercent += percentage
-
-                        return (
-                          <Circle
-                            key={category.name}
-                            cx={center}
-                            cy={center}
-                            r={radius}
-                            stroke={category.color}
-                            strokeWidth={isSelected ? strokeWidthSelected : strokeWidthDefault}
-                            strokeDasharray={strokeDasharray}
-                            strokeDashoffset={strokeDashoffset}
-                            fill="none"
-                            transform={`rotate(-90 ${center} ${center})`}
-                            testID={`donut-slice-${category.name}`}
-                            onPress={() => handleCategoryHighlight(category.name)}
-                          />
-                        )
-                      })
-                  })()}
-                </Svg>
-                <View style={themed($donutTextOverlay)} pointerEvents="none">
-                  <Text
-                    text={formatMoney(summary.totalExpense, summary.currencySymbol)}
-                    style={themed($donutAmount)}
-                  />
-                  <Text text="total" style={themed($muted)} />
-                </View>
-              </View>
-              <View style={themed($legend)}>
+            {categoryExpenses.length > 0 ? (
+              <View style={themed($breakdownChart)}>
                 {categoryExpenses.slice(0, 6).map((category) => (
-                  <LegendRow
+                  <BreakdownBar
                     key={category.name}
                     category={category}
+                    currencySymbol={summary.currencySymbol}
                     isSelected={selectedCategory === category.name}
                     onPress={() => handleCategorySelect(category.name)}
                   />
                 ))}
               </View>
-            </View>
+            ) : (
+              <View style={themed($breakdownEmpty)}>
+                <Text text="No expenses for this period." style={themed($muted)} />
+              </View>
+            )}
           </FinanceCard>
 
           {/* By Category */}
@@ -509,12 +450,14 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function LegendRow({
+function BreakdownBar({
   category,
+  currencySymbol,
   isSelected,
   onPress,
 }: {
-  category: { name: string; color: string; percentage: number }
+  category: { name: string; amount: number; color: string; percentage: number }
+  currencySymbol: string
   isSelected: boolean
   onPress: () => void
 }) {
@@ -523,19 +466,38 @@ function LegendRow({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      testID={`legend-row-${category.name}`}
-      style={themed([$legendRow, isSelected && $legendRowSelected])}
+      testID={`breakdown-row-${category.name}`}
+      style={themed([$breakdownBarRow, isSelected && $breakdownBarRowSelected])}
     >
-      <View style={[themed($legendDot), { backgroundColor: category.color }]} />
-      <Text
-        text={category.name}
-        style={themed([$legendName, isSelected && $legendTextSelected])}
-        numberOfLines={1}
-      />
-      <Text
-        text={`${formatDisplayNumber(category.percentage)}%`}
-        style={themed([$legendPercent, isSelected && $legendTextSelected])}
-      />
+      <View style={themed($breakdownBarHeader)}>
+        <Text
+          text={category.name}
+          style={themed([$breakdownBarName, isSelected && $breakdownBarTextSelected])}
+          numberOfLines={1}
+        />
+        <Text
+          text={formatMoney(category.amount, currencySymbol)}
+          style={themed([$breakdownBarAmount, isSelected && $breakdownBarTextSelected])}
+          numberOfLines={1}
+        />
+        <Text
+          text={`${formatDisplayNumber(category.percentage)}%`}
+          style={themed([$breakdownBarPercent, isSelected && $breakdownBarTextSelected])}
+          numberOfLines={1}
+        />
+      </View>
+      <View style={themed($breakdownBarTrack)}>
+        <View
+          testID={`breakdown-bar-${category.name}`}
+          style={[
+            themed($breakdownBarFill),
+            {
+              backgroundColor: category.color,
+              width: `${Math.min(100, Math.max(0, category.percentage))}%`,
+            },
+          ]}
+        />
+      </View>
     </Pressable>
   )
 }
@@ -773,73 +735,69 @@ const $cardTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   fontSize: 18,
 })
 
-const $breakdownRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "center",
-  flexDirection: "row",
-  gap: spacing.lg,
+const $breakdownChart: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.sm,
   marginTop: spacing.md,
 })
 
-const $donutContainer: ThemedStyle<ViewStyle> = () => ({
-  height: 124,
-  position: "relative",
-  width: 124,
-})
-
-const $donutTextOverlay: ThemedStyle<ViewStyle> = () => ({
+const $breakdownEmpty: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
-  bottom: 0,
   justifyContent: "center",
-  left: 0,
-  position: "absolute",
-  right: 0,
-  top: 0,
+  minHeight: 112,
+  paddingVertical: spacing.lg,
 })
 
-const $donutAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
-  color: colors.text,
-  fontFamily: typography.primary.semiBold,
+const $breakdownBarRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  borderRadius: 10,
+  gap: spacing.xs,
+  padding: spacing.xs,
 })
 
-const $legend: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flex: 1,
-  gap: spacing.sm,
-})
-
-const $legendRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  alignItems: "center",
-  flexDirection: "row",
-  gap: spacing.sm,
-  borderRadius: 6,
-  paddingHorizontal: spacing.xs,
-  paddingVertical: spacing.xxs,
-})
-
-const $legendRowSelected: ThemedStyle<ViewStyle> = ({ colors }) => ({
+const $breakdownBarRowSelected: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.surfaceContainerHigh,
 })
 
-const $legendTextSelected: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+const $breakdownBarHeader: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.sm,
+})
+
+const $breakdownBarName: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.textDim,
+  flex: 1,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+})
+
+const $breakdownBarAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
+})
+
+const $breakdownBarPercent: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 12,
+  minWidth: 42,
+  textAlign: "right",
+})
+
+const $breakdownBarTextSelected: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
 })
 
-const $legendDot: ThemedStyle<ViewStyle> = () => ({
-  borderRadius: 5,
+const $breakdownBarTrack: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHighest,
+  borderRadius: 999,
   height: 10,
-  width: 10,
+  overflow: "hidden",
 })
 
-const $legendName: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.textDim,
-  flex: 1,
-  fontSize: 12,
-})
-
-const $legendPercent: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
-  color: colors.text,
-  fontFamily: typography.primary.semiBold,
-  fontSize: 12,
+const $breakdownBarFill: ThemedStyle<ViewStyle> = () => ({
+  borderRadius: 999,
+  height: 10,
 })
 
 const $sectionToggle: ThemedStyle<ViewStyle> = () => ({
