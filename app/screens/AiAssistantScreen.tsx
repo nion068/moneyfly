@@ -1,8 +1,8 @@
 import { ComponentProps, FC, useEffect, useMemo, useRef, useState } from "react"
 import {
-  Alert,
   Animated,
   Easing,
+  Modal,
   Pressable,
   ScrollView,
   TextStyle,
@@ -11,6 +11,7 @@ import {
 } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 
+import { Button } from "@/components/Button"
 import { FinanceCard } from "@/components/firefly/FinancePrimitives"
 import { SelectionItem, SelectionSheet } from "@/components/firefly/SelectionSheet"
 import { Screen } from "@/components/Screen"
@@ -85,6 +86,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
     snapshot,
   } = useMoneyAgent()
   const scrollRef = useRef<ScrollView>(null)
+  const [isClearDialogVisible, setIsClearDialogVisible] = useState(false)
 
   useEffect(() => {
     const timeout = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0)
@@ -105,25 +107,15 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
 
   const onClearChat = () => {
     if (unresolvedDrafts.length > 0) {
-      Alert.alert(
-        "Clear chat?",
-        "There are unresolved drafts. You can keep the drafts and clear only the chat history, or discard everything.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Keep drafts",
-            onPress: () => clearConversation(false),
-          },
-          {
-            text: "Discard and clear",
-            style: "destructive",
-            onPress: () => clearConversation(true),
-          },
-        ],
-      )
+      setIsClearDialogVisible(true)
       return
     }
     clearConversation(true)
+  }
+
+  const clearChat = (discardDrafts: boolean) => {
+    setIsClearDialogVisible(false)
+    clearConversation(discardDrafts)
   }
 
   return (
@@ -292,6 +284,60 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
             )}
           />
         </View>
+
+        <Modal
+          visible={isClearDialogVisible}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setIsClearDialogVisible(false)}
+        >
+          <View style={themed($dialogOverlay)}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close clear chat confirmation"
+              onPress={() => setIsClearDialogVisible(false)}
+              style={themed($dialogBackdrop)}
+            />
+            <View accessibilityRole="alert" accessibilityViewIsModal style={themed($dialog)}>
+              <View style={themed($dialogIcon)}>
+                <MaterialCommunityIcons
+                  name="trash-can-outline"
+                  size={28}
+                  style={themed($clearIcon)}
+                />
+              </View>
+              <Text text="Clear chat?" style={themed($dialogTitle)} />
+              <Text
+                text="There are unresolved drafts. You can keep the drafts and clear only the chat history, or discard everything."
+                style={themed($dialogMessage)}
+              />
+              <View style={themed($dialogActions)}>
+                <View style={themed($dialogActionRow)}>
+                  <Button
+                    text="Cancel"
+                    onPress={() => setIsClearDialogVisible(false)}
+                    style={themed($cancelButton)}
+                    textStyle={themed($cancelButtonText)}
+                  />
+                  <Button
+                    text="Keep drafts"
+                    onPress={() => clearChat(false)}
+                    style={themed($keepDraftsButton)}
+                    textStyle={themed($keepDraftsButtonText)}
+                  />
+                </View>
+                <Button
+                  text="Discard and clear"
+                  accessibilityLabel="Discard drafts and clear chat"
+                  onPress={() => clearChat(true)}
+                  style={themed($discardButton)}
+                  textStyle={themed($discardButtonText)}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Screen>
   )
@@ -1304,6 +1350,111 @@ const $error: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.error,
   fontSize: 13,
   lineHeight: 18,
+})
+
+const $dialogOverlay: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.overlay50,
+  flex: 1,
+  justifyContent: "center",
+  padding: spacing.lg,
+})
+
+const $dialogBackdrop: ThemedStyle<ViewStyle> = () => ({
+  bottom: 0,
+  left: 0,
+  position: "absolute",
+  right: 0,
+  top: 0,
+})
+
+const $dialog: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
+  borderRadius: 24,
+  borderWidth: 1,
+  gap: spacing.sm,
+  maxWidth: 420,
+  padding: spacing.lg,
+  width: "100%",
+})
+
+const $dialogIcon: ThemedStyle<ViewStyle> = () => ({
+  alignItems: "center",
+  backgroundColor: "rgba(216, 113, 98, 0.14)",
+  borderRadius: 28,
+  height: 56,
+  justifyContent: "center",
+  marginBottom: 4,
+  width: 56,
+})
+
+const $clearIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary300,
+})
+
+const $dialogTitle: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.bold,
+  fontSize: 20,
+  textAlign: "center",
+})
+
+const $dialogMessage: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 14,
+  lineHeight: 20,
+  textAlign: "center",
+})
+
+const $dialogActions: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.sm,
+  marginTop: spacing.xs,
+  width: "100%",
+})
+
+const $dialogActionRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  gap: spacing.sm,
+})
+
+const $cancelButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHigh,
+  borderColor: colors.palette.stroke,
+  borderRadius: 14,
+  flex: 1,
+  minHeight: 48,
+})
+
+const $cancelButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  fontFamily: typography.primary.semiBold,
+})
+
+const $keepDraftsButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.primary300,
+  borderColor: colors.palette.primary300,
+  borderRadius: 14,
+  flex: 1,
+  minHeight: 48,
+})
+
+const $keepDraftsButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.bold,
+})
+
+const $discardButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.tertiary300,
+  borderColor: colors.palette.tertiary300,
+  borderRadius: 14,
+  minHeight: 48,
+})
+
+const $discardButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.bold,
 })
 
 const $draftCard: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({

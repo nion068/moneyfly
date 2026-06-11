@@ -202,6 +202,30 @@ describe("AiAssistantScreen", () => {
     expect(screen.getByLabelText("Money Agent is thinking...")).toBeTruthy()
   })
 
+  it("uses a themed confirmation modal when clearing chat with unresolved drafts", () => {
+    mockMoneyAgentValue.drafts.push(createDraft("draft-1"))
+    const screen = renderScreen()
+
+    fireEvent.press(screen.getByLabelText("Clear chat"))
+
+    expect(screen.getByText("Clear chat?")).toBeTruthy()
+    expect(screen.getByText("Keep drafts")).toBeTruthy()
+    expect(screen.getByText("Discard and clear")).toBeTruthy()
+
+    fireEvent.press(screen.getByText("Keep drafts"))
+    expect(mockMoneyAgentValue.clearConversation).toHaveBeenCalledWith(false)
+    expect(screen.queryByText("Clear chat?")).toBeNull()
+  })
+
+  it("clears immediately when there are no unresolved drafts", () => {
+    const screen = renderScreen()
+
+    fireEvent.press(screen.getByLabelText("Clear chat"))
+
+    expect(mockMoneyAgentValue.clearConversation).toHaveBeenCalledWith(true)
+    expect(screen.queryByText("Clear chat?")).toBeNull()
+  })
+
   it("collapses and expands a transaction draft while keeping its summary visible", () => {
     mockMoneyAgentValue.items.push({
       id: "draft-item-1",
