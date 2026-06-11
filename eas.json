@@ -7,7 +7,8 @@
       "extends": "production",
       "distribution": "internal",
       "env": {
-        "NODE_ENV": "development"
+        "NODE_ENV": "development",
+        "APP_VARIANT": "development"
       },
       "android": {
         "gradleCommand": ":app:assembleDebug"

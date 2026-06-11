@@ -1,5 +1,6 @@
 declare module "@expo/config" {
   export type ExpoConfig = {
+    android?: Record<string, unknown>
     ios?: Record<string, unknown>
     plugins?: unknown[]
     [key: string]: unknown

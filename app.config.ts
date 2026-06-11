@@ -16,11 +16,19 @@ import "tsx/cjs"
  */
 module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
   const existingPlugins = config.plugins ?? []
+  const isDevelopment = process.env.APP_VARIANT === "development"
 
   return {
     ...config,
+    name: isDevelopment ? "Moneyfly Dev" : config.name,
+    scheme: isDevelopment ? "moneyfly-dev" : config.scheme,
+    android: {
+      ...config.android,
+      package: isDevelopment ? "com.moneyfly.dev" : config.android?.package,
+    },
     ios: {
       ...config.ios,
+      bundleIdentifier: isDevelopment ? "com.moneyfly.dev" : config.ios?.bundleIdentifier,
       // This privacyManifests is to get you started.
       // See Expo's guide on apple privacy manifests here:
       // https://docs.expo.dev/guides/apple-privacy/
