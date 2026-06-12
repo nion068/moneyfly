@@ -31,6 +31,7 @@
       "distribution": "internal",
       "env": {
         "NODE_ENV": "production",
+        "APP_VARIANT": "preview",
         "GRADLE_OPTS": "-Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false",
         "NODE_OPTIONS": "--max-old-space-size=1536"
       },
@@ -43,7 +44,8 @@
     },
     "production": {
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "APP_VARIANT": "production"
       }
     }
   },

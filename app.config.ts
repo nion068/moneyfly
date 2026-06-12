@@ -16,19 +16,43 @@ import "tsx/cjs"
  */
 module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
   const existingPlugins = config.plugins ?? []
-  const isDevelopment = process.env.APP_VARIANT === "development"
+  const variant = process.env.APP_VARIANT ?? "production"
+  const variants = {
+    development: {
+      name: "Moneyfly Dev",
+      scheme: "moneyfly-dev",
+      identifier: "com.moneyfly.dev",
+    },
+    preview: {
+      name: "Moneyfly Preview",
+      scheme: "moneyfly-preview",
+      identifier: "com.moneyfly.preview",
+    },
+    production: {
+      name: config.name,
+      scheme: config.scheme,
+      identifier: "com.moneyfly",
+    },
+  } as const
+  const app = variants[variant as keyof typeof variants]
+
+  if (!app) {
+    throw new Error(
+      `Unknown APP_VARIANT "${variant}". Expected development, preview, or production.`,
+    )
+  }
 
   return {
     ...config,
-    name: isDevelopment ? "Moneyfly Dev" : config.name,
-    scheme: isDevelopment ? "moneyfly-dev" : config.scheme,
+    name: app.name,
+    scheme: app.scheme,
     android: {
       ...config.android,
-      package: isDevelopment ? "com.moneyfly.dev" : config.android?.package,
+      package: app.identifier,
     },
     ios: {
       ...config.ios,
-      bundleIdentifier: isDevelopment ? "com.moneyfly.dev" : config.ios?.bundleIdentifier,
+      bundleIdentifier: app.identifier,
       // This privacyManifests is to get you started.
       // See Expo's guide on apple privacy manifests here:
       // https://docs.expo.dev/guides/apple-privacy/

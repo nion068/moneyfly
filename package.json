@@ -5,8 +5,8 @@
   "main": "index.tsx",
   "scripts": {
     "start": "expo start --dev-client",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "APP_VARIANT=development expo prebuild --clean --platform android && APP_VARIANT=development expo run:android",
+    "ios": "APP_VARIANT=development expo prebuild --clean --platform ios && APP_VARIANT=development expo run:ios",
     "web": "expo start --web",
     "bundle:web": "npx expo export --platform web",
     "serve:web": "npx serve dist",
