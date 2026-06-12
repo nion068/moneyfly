@@ -216,7 +216,14 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
                   .toUpperCase()}`}
                 style={themed($eyebrow)}
               />
-              <Text text={amount(summary.netBalance)} style={themed($heroAmount)} />
+              <Text
+                text={amount(summary.netBalance)}
+                style={themed([
+                  $heroAmount,
+                  summary.netBalance > 0 && $positiveHeroAmount,
+                  summary.netBalance < 0 && $negativeHeroAmount,
+                ])}
+              />
               <View style={themed($metricRow)}>
                 <MetricPill
                   label="Income"
@@ -798,6 +805,14 @@ const $heroAmount: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   fontSize: 34,
   lineHeight: 40,
   marginTop: 2,
+})
+
+const $positiveHeroAmount: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.primary300,
+})
+
+const $negativeHeroAmount: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary300,
 })
 
 const $metricRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
