@@ -25,6 +25,7 @@ import {
   getAnalyticsWindow,
   groupExpensesByAccount,
   groupExpensesByCategory,
+  startOfCurrentMonth,
 } from "@/services/firefly/transforms"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -54,8 +55,6 @@ const monthNames = Array.from({ length: 12 }, (_, month) =>
 export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   const { themed } = useAppTheme()
   const {
-    selectedMonth,
-    setSelectedMonth,
     transactions,
     summariesByCurrency,
     selectedCurrency,
@@ -66,6 +65,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     isConfigured,
   } = useFirefly()
 
+  const [analyticsMonth, setAnalyticsMonth] = useState(startOfCurrentMonth)
   const [period, setPeriod] = useState<AnalyticsPeriod>("month")
   const [showPeriods, setShowPeriods] = useState(false)
   const [chartMetric, setChartMetric] = useState<ChartMetric>("expense")
@@ -106,18 +106,18 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       monthScrollRef.current?.scrollTo({
-        x: Math.max(0, selectedMonth.getMonth() * 66 - 120),
+        x: Math.max(0, analyticsMonth.getMonth() * 66 - 120),
         animated: true,
       })
     }, 50)
     return () => clearTimeout(timeout)
-  }, [selectedMonth])
+  }, [analyticsMonth])
 
   const loadRange = useCallback(async () => {
     if (!isConfigured) return
     const currentFetch = ++fetchRef.current
     setRangeTransactions((prev) => ({ ...prev, status: "loading" }))
-    const range = getAnalyticsWindow(selectedMonth, period)
+    const range = getAnalyticsWindow(analyticsMonth, period)
     const api = new FireflyApi(baseUrl, token)
     const result = await api.getTransactions(range)
     if (currentFetch !== fetchRef.current) return
@@ -129,7 +129,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     } else {
       setRangeTransactions((prev) => ({ ...prev, status: "error", error: result }))
     }
-  }, [baseUrl, isConfigured, period, selectedMonth, token])
+  }, [analyticsMonth, baseUrl, isConfigured, period, token])
 
   useEffect(() => {
     void loadRange()
@@ -141,8 +141,8 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   )
 
   const analyticsBuckets = useMemo(
-    () => getAnalyticsBuckets(selectedMonth, period),
-    [period, selectedMonth],
+    () => getAnalyticsBuckets(analyticsMonth, period),
+    [analyticsMonth, period],
   )
   const activeBucket = analyticsBuckets[analyticsBuckets.length - 1]
   const activeTransactions = currencyTransactions.filter((transaction) => {
@@ -163,15 +163,15 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
   const accountExpenses = groupExpensesByAccount(activeTransactions)
 
   const rangeLabel = (() => {
-    const range = getAnalyticsRange(selectedMonth, period)
+    const range = getAnalyticsRange(analyticsMonth, period)
     if (period === "month") {
-      return selectedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+      return analyticsMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })
     }
     const fmt = (d: string) => {
       const date = new Date(`${d}T12:00:00`)
       return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     }
-    return `${fmt(range.start)} – ${fmt(range.end)}, ${selectedMonth.getFullYear()}`
+    return `${fmt(range.start)} – ${fmt(range.end)}, ${analyticsMonth.getFullYear()}`
   })()
 
   const isLoading = rangeTransactions.status === "loading" && rangeTransactions.data.length === 0
@@ -180,7 +180,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     setSelectedTrendPoint(null)
-  }, [chartMetric, period, selectedMonth])
+  }, [analyticsMonth, chartMetric, period])
 
   const navigateHomeFiltered = (filterType: "category" | "account", name: string) => {
     navigation.navigate("Home", {
@@ -480,20 +480,20 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
       {/* Year picker modal (same pattern as HomeScreen) */}
       <YearPicker
         visible={showYears}
-        selectedYear={selectedMonth.getFullYear()}
+        selectedYear={analyticsMonth.getFullYear()}
         maximumYear={now.getFullYear()}
         onSelect={(year) => {
           const monthIndex =
             year === now.getFullYear()
-              ? Math.min(selectedMonth.getMonth(), now.getMonth())
-              : selectedMonth.getMonth()
-          setSelectedMonth(new Date(year, monthIndex, 1))
+              ? Math.min(analyticsMonth.getMonth(), now.getMonth())
+              : analyticsMonth.getMonth()
+          setAnalyticsMonth(new Date(year, monthIndex, 1))
           setShowYears(false)
         }}
         onClose={() => setShowYears(false)}
         monthScrollRef={monthScrollRef}
-        selectedMonth={selectedMonth}
-        setSelectedMonth={setSelectedMonth}
+        selectedMonth={analyticsMonth}
+        setSelectedMonth={setAnalyticsMonth}
         now={now}
       />
     </>

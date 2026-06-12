@@ -19,6 +19,11 @@ jest.mock("@/services/firefly/api", () => ({
   normalizeBaseUrl: (url: string) => url,
 }))
 
+jest.mock("@/services/firefly/transforms", () => ({
+  ...jest.requireActual("@/services/firefly/transforms"),
+  startOfCurrentMonth: () => new Date(2026, 5, 1),
+}))
+
 jest.mock("react-native-keyboard-controller", () => {
   const React = require("react")
 
@@ -183,6 +188,7 @@ const renderWithProviders = (ui: ReactElement) => {
 describe("AnalyticsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockBaseContextValue.selectedMonth = new Date(2026, 5, 1)
     mockBaseContextValue.transactions.data = [baseTransaction]
     mockBaseContextValue.selectedCurrency = "BDT"
     mockGetTransactions.mockResolvedValue({
@@ -228,6 +234,31 @@ describe("AnalyticsScreen", () => {
         end: "2026-06-30",
       })
     })
+  })
+
+  it("maintains its month separately from the Home month", async () => {
+    mockBaseContextValue.selectedMonth = new Date(2026, 3, 1)
+    const { getByLabelText, getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    await waitFor(() => {
+      expect(mockGetTransactions).toHaveBeenCalledWith({
+        start: "2026-01-01",
+        end: "2026-06-30",
+      })
+    })
+
+    fireEvent.press(getByLabelText("Open month picker"))
+    fireEvent.press(getByText("May"))
+
+    await waitFor(() => {
+      expect(mockGetTransactions).toHaveBeenCalledWith({
+        start: "2025-12-01",
+        end: "2026-05-31",
+      })
+    })
+    expect(mockBaseContextValue.setSelectedMonth).not.toHaveBeenCalled()
   })
 
   it("shows Income, Expenses, and Saved metric cards", () => {
