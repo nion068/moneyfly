@@ -17,8 +17,10 @@ import { SelectionItem, SelectionSheet } from "@/components/firefly/SelectionShe
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
+import { useFirefly } from "@/context/FireflyContext"
 import { useMoneyAgent } from "@/context/MoneyAgentContext"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
+import { navigate as navigateRoot } from "@/navigators/navigationUtilities"
 import {
   compatibleMoneyAgentAccounts,
   formatMoneyAgentDraftAmount,
@@ -70,6 +72,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
     themed,
     theme: { colors },
   } = useAppTheme()
+  const { isConfigured } = useFirefly()
   const {
     items,
     drafts,
@@ -117,6 +120,14 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
     setIsClearDialogVisible(false)
     clearConversation(discardDrafts)
   }
+  const openFireflySettings = () => navigation.navigate("Settings", { screen: "SettingsFirefly" })
+  const send = (text?: string) => {
+    if (!isConfigured) {
+      openFireflySettings()
+      return
+    }
+    void sendMessage(text)
+  }
 
   return (
     <Screen preset="fixed" safeAreaEdges={["top"]} contentContainerStyle={themed($screenContent)}>
@@ -133,9 +144,11 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 <Text
                   numberOfLines={1}
                   text={
-                    hasApiKey && isReady
-                      ? `${providerId.toUpperCase()} · Ready to help`
-                      : "Configure Gemini in Settings"
+                    !isConfigured
+                      ? "Connect Firefly in Settings"
+                      : hasApiKey && isReady
+                        ? `${providerId.toUpperCase()} · Ready to help`
+                        : "Configure Gemini in Settings"
                   }
                   style={themed($subtitle)}
                 />
@@ -155,7 +168,9 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Money Agent settings"
-              onPress={() => navigation.navigate("Settings")}
+              onPress={() =>
+                isConfigured ? navigation.navigate("Settings") : openFireflySettings()
+              }
               style={themed($iconButton)}
             >
               <MaterialCommunityIcons name="dots-horizontal" size={22} color={colors.text} />
@@ -197,7 +212,9 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
               <Pressable
                 key={item.label}
                 accessibilityRole="button"
-                onPress={() => sendQuickPrompt(item.prompt)}
+                onPress={() =>
+                  isConfigured ? sendQuickPrompt(item.prompt) : openFireflySettings()
+                }
                 style={themed($promptChip)}
               >
                 <MaterialCommunityIcons name={item.icon} size={16} color={colors.textDim} />
@@ -221,7 +238,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 createdAt={item.message.createdAt}
                 canResend={item.message.id === latestUserMessageId}
                 isResending={isSending}
-                onResend={() => void sendMessage(item.message.text)}
+                onResend={() => send(item.message.text)}
               />
             ) : item.kind === "draft-group" ? (
               <MoneyAgentDraftGroup
@@ -269,7 +286,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
                 accessibilityRole="button"
                 accessibilityLabel="Send message"
                 disabled={isSending || input.trim().length === 0}
-                onPress={() => void sendMessage()}
+                onPress={() => send()}
                 style={themed([
                   $sendIconButton,
                   (isSending || input.trim().length === 0) && $sendIconDisabled,
@@ -496,6 +513,7 @@ function MoneyAgentDraftCard({
     themed,
     theme: { colors },
   } = useAppTheme()
+  const { isConfigured } = useFirefly()
   const { drafts, updateDraft, confirmDraft, discardDraft } = useMoneyAgent()
   const draft = drafts.find((item) => item.id === draftId)
   const [isExpanded, setIsExpanded] = useState(
@@ -894,6 +912,13 @@ function MoneyAgentDraftCard({
                 currentDraft.status === "discarded"
               }
               onPress={() => {
+                if (!isConfigured) {
+                  navigateRoot("Main", {
+                    screen: "Settings",
+                    params: { screen: "SettingsFirefly" },
+                  })
+                  return
+                }
                 setLocalDraft(undefined)
                 setEditing(false)
                 void confirmDraft(currentDraft.id)

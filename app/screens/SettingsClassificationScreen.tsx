@@ -20,8 +20,16 @@ export const SettingsClassificationScreen: FC<Props> = ({ navigation }) => {
     themed,
     theme: { colors },
   } = useAppTheme()
-  const { categories, tags, settingsMutation, saveCategory, deleteCategory, saveTag, deleteTag } =
-    useFirefly()
+  const {
+    isConfigured,
+    categories,
+    tags,
+    settingsMutation,
+    saveCategory,
+    deleteCategory,
+    saveTag,
+    deleteTag,
+  } = useFirefly()
   const [editor, setEditor] = useState<Editor>(null)
   const [value, setValue] = useState("")
   const [search, setSearch] = useState("")
@@ -36,6 +44,10 @@ export const SettingsClassificationScreen: FC<Props> = ({ navigation }) => {
     : tags.data
 
   function openEditor(next: NonNullable<Editor>) {
+    if (!isConfigured) {
+      navigation.navigate("SettingsFirefly")
+      return
+    }
     setEditor(next)
     setValue(next.value)
   }
@@ -50,6 +62,10 @@ export const SettingsClassificationScreen: FC<Props> = ({ navigation }) => {
   }
 
   function confirmDelete(kind: "category" | "tag", id: string, label: string) {
+    if (!isConfigured) {
+      navigation.navigate("SettingsFirefly")
+      return
+    }
     Alert.alert(
       `Delete ${kind}?`,
       `"${label}" will be removed from Firefly. Existing transactions may retain historical values.`,

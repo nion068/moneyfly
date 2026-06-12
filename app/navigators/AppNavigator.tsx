@@ -5,14 +5,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 
 import { Text } from "@/components/Text"
 import Config from "@/config"
-import { useFirefly } from "@/context/FireflyContext"
 import { AccountsScreen } from "@/screens/AccountsScreen"
 import { AddTransactionScreen } from "@/screens/AddTransactionScreen"
 import { AiAssistantScreen } from "@/screens/AiAssistantScreen"
 import { AnalyticsScreen } from "@/screens/AnalyticsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { HomeScreen } from "@/screens/HomeScreen"
-import { SetupScreen } from "@/screens/SetupScreen"
 import { TransactionDetailsScreen } from "@/screens/TransactionDetailsScreen"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -103,14 +101,12 @@ function MainTabs() {
 }
 
 const AppStack = () => {
-  const { isConfigured } = useFirefly()
   const {
     theme: { colors },
   } = useAppTheme()
 
   return (
     <Stack.Navigator
-      key={isConfigured ? "configured" : "setup"}
       screenOptions={{
         headerShown: false,
         navigationBarColor: colors.background,
@@ -118,30 +114,24 @@ const AppStack = () => {
           backgroundColor: colors.background,
         },
       }}
-      initialRouteName={isConfigured ? "Main" : "Setup"}
+      initialRouteName="Main"
     >
-      {isConfigured ? (
-        <>
-          <Stack.Screen name="Main" component={MainTabs} />
-          <Stack.Screen
-            name="AddTransaction"
-            component={AddTransactionScreen}
-            options={{ animation: "slide_from_bottom" }}
-          />
-          <Stack.Screen
-            name="TransactionDetails"
-            component={TransactionDetailsScreen}
-            options={{ animation: "slide_from_right" }}
-          />
-          <Stack.Screen
-            name="EditTransaction"
-            component={AddTransactionScreen}
-            options={{ animation: "slide_from_bottom" }}
-          />
-        </>
-      ) : (
-        <Stack.Screen name="Setup" component={SetupScreen} />
-      )}
+      <Stack.Screen name="Main" component={MainTabs} />
+      <Stack.Screen
+        name="AddTransaction"
+        component={AddTransactionScreen}
+        options={{ animation: "slide_from_bottom" }}
+      />
+      <Stack.Screen
+        name="TransactionDetails"
+        component={TransactionDetailsScreen}
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="EditTransaction"
+        component={AddTransactionScreen}
+        options={{ animation: "slide_from_bottom" }}
+      />
     </Stack.Navigator>
   )
 }

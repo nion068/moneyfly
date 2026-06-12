@@ -50,6 +50,10 @@ jest.mock("@/context/MoneyAgentContext", () => ({
   useMoneyAgent: () => mockMoneyAgentValue,
 }))
 
+jest.mock("@/context/FireflyContext", () => ({
+  useFirefly: () => ({ isConfigured: true }),
+}))
+
 jest.mock("@expo/vector-icons", () => {
   const { View } = require("react-native")
   return {

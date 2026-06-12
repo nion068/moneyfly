@@ -43,6 +43,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
   const isEditing = route.name === "EditTransaction"
   const editParams = isEditing ? route.params : undefined
   const {
+    isConfigured,
     accounts,
     categories,
     tags: fireflyTags,
@@ -72,6 +73,15 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
   const [validationError, setValidationError] = useState<string>()
   const [isCompleting, setIsCompleting] = useState(false)
   const initializedEditId = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!isConfigured) {
+      navigation.replace("Main", {
+        screen: "Settings",
+        params: { screen: "SettingsFirefly" },
+      })
+    }
+  }, [isConfigured, navigation])
 
   const ownedAccounts = useMemo(() => accounts.data.filter(isOwnedAccount), [accounts.data])
   const expenseAccounts = useMemo(() => accounts.data.filter(isExpenseAccount), [accounts.data])
@@ -286,6 +296,8 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
       transactionDetail.data?.attributes.transactions[0]?.transaction_journal_id
     )
   }
+
+  if (!isConfigured) return null
 
   return (
     <>

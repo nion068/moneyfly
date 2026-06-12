@@ -1,4 +1,4 @@
-import { FC, useState } from "react"
+import { FC, useEffect, useState } from "react"
 import { ActivityIndicator, Alert, Pressable, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 
@@ -26,6 +26,7 @@ export const SettingsFireflyScreen: FC<Props> = ({ navigation }) => {
     theme: { colors },
   } = useAppTheme()
   const {
+    isConfigured,
     baseUrl,
     accounts,
     transactions,
@@ -39,9 +40,17 @@ export const SettingsFireflyScreen: FC<Props> = ({ navigation }) => {
   } = useFirefly()
   const [serverInput, setServerInput] = useState(baseUrl)
   const [tokenInput, setTokenInput] = useState("")
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(!isConfigured)
   const error = connectionError ?? accounts.error?.message ?? transactions.error?.message
   const host = baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
+
+  useEffect(() => {
+    if (!isConfigured) setEditing(true)
+  }, [isConfigured])
+
+  useEffect(() => {
+    setServerInput(baseUrl)
+  }, [baseUrl])
 
   async function saveConnection() {
     if (!serverInput.trim() || !tokenInput.trim()) return
@@ -67,45 +76,55 @@ export const SettingsFireflyScreen: FC<Props> = ({ navigation }) => {
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
       <SettingsHeader
         title="Firefly III"
-        subtitle={error ? "Needs attention" : "Connected"}
+        subtitle={!isConfigured ? "Not connected" : error ? "Needs attention" : "Connected"}
         onBack={navigation.goBack}
       />
 
-      <SettingsCard style={themed(error ? $connectionError : $connectionHero)}>
+      <SettingsCard style={themed(!isConfigured || error ? $connectionError : $connectionHero)}>
         <SettingsIcon name="server" tone="blue" />
         <View style={themed($heroCopy)}>
-          <Text text={host || "Firefly server"} style={themed($heroTitle)} />
+          <Text text={host || "Connect your Firefly server"} style={themed($heroTitle)} />
           <Text
-            text={error ?? `${transactions.data.length} transactions loaded`}
+            text={
+              error ??
+              (isConfigured
+                ? `${transactions.data.length} transactions loaded`
+                : "Enter your server URL and personal access token below.")
+            }
             style={themed($muted)}
           />
         </View>
-        <StatusText text={error ? "Offline" : "Online"} positive={!error} />
+        <StatusText
+          text={!isConfigured ? "Setup required" : error ? "Offline" : "Online"}
+          positive={isConfigured && !error}
+        />
       </SettingsCard>
 
       <SettingsSection title="Connection">
         <SettingsRow
           first
           title="Server URL"
-          value={host}
+          value={host || "Not configured"}
           icon="web"
           tone="blue"
           onPress={() => setEditing((value) => !value)}
         />
         <SettingsRow
           title="API Token"
-          value="Stored securely"
+          value={isConfigured ? "Stored securely" : "Not configured"}
           icon="key-outline"
           tone="primary"
           onPress={() => setEditing(true)}
         />
-        <SettingsRow
-          title="Connection Status"
-          value={error ? "Needs attention" : "Active"}
-          icon="access-point"
-          tone="blue"
-          onPress={() => void refresh()}
-        />
+        {isConfigured ? (
+          <SettingsRow
+            title="Connection Status"
+            value={error ? "Needs attention" : "Active"}
+            icon="access-point"
+            tone="blue"
+            onPress={() => void refresh()}
+          />
+        ) : null}
         {editing ? (
           <View style={themed($editor)}>
             <TextField
@@ -122,7 +141,11 @@ export const SettingsFireflyScreen: FC<Props> = ({ navigation }) => {
               autoCapitalize="none"
               autoCorrect={false}
               secureTextEntry
-              helper="The current token is never displayed. Enter a token to save connection changes."
+              helper={
+                isConfigured
+                  ? "The current token is never displayed. Enter a token to save connection changes."
+                  : "The token is verified before it is stored on this device."
+              }
             />
             {connectionError ? <Text text={connectionError} style={themed($error)} /> : null}
             <Pressable
@@ -152,37 +175,44 @@ export const SettingsFireflyScreen: FC<Props> = ({ navigation }) => {
         ) : null}
       </SettingsSection>
 
-      <SettingsSection title="Synchronization">
-        <SettingsRow
-          first
-          title="Last Sync"
-          subtitle={
-            lastSyncedAt
-              ? `${lastSyncedAt.toLocaleString()} · ${transactions.data.length} transactions`
-              : "No successful synchronization yet"
-          }
-          icon="clock-outline"
-        />
-        <SettingsRow
-          title={isRefreshing ? "Syncing..." : "Sync Now"}
-          value="Pulls all changes"
-          icon="sync"
-          tone="primary"
-          disabled={isRefreshing}
-          trailing={
-            isRefreshing ? <ActivityIndicator color={colors.tint} size="small" /> : undefined
-          }
-          onPress={() => void refresh()}
-        />
-      </SettingsSection>
+      {isConfigured ? (
+        <>
+          <SettingsSection title="Synchronization">
+            <SettingsRow
+              first
+              title="Last Sync"
+              subtitle={
+                lastSyncedAt
+                  ? `${lastSyncedAt.toLocaleString()} · ${transactions.data.length} transactions`
+                  : "No successful synchronization yet"
+              }
+              icon="clock-outline"
+            />
+            <SettingsRow
+              title={isRefreshing ? "Syncing..." : "Sync Now"}
+              value="Pulls all changes"
+              icon="sync"
+              tone="primary"
+              disabled={isRefreshing}
+              trailing={
+                isRefreshing ? <ActivityIndicator color={colors.tint} size="small" /> : undefined
+              }
+              onPress={() => void refresh()}
+            />
+          </SettingsSection>
 
-      <Pressable onPress={confirmDisconnect} style={themed($disconnect)}>
-        <SettingsIcon name="link-variant-off" tone="danger" size={22} />
-        <View style={themed($disconnectCopy)}>
-          <Text text="Disconnect Firefly" style={themed($disconnectText)} />
-          <Text text="Remove this server from Moneyfly" style={themed($disconnectDescription)} />
-        </View>
-      </Pressable>
+          <Pressable onPress={confirmDisconnect} style={themed($disconnect)}>
+            <SettingsIcon name="link-variant-off" tone="danger" size={22} />
+            <View style={themed($disconnectCopy)}>
+              <Text text="Disconnect Firefly" style={themed($disconnectText)} />
+              <Text
+                text="Remove this server from Moneyfly"
+                style={themed($disconnectDescription)}
+              />
+            </View>
+          </Pressable>
+        </>
+      ) : null}
     </Screen>
   )
 }

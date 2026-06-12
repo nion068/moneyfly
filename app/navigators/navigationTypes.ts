@@ -34,7 +34,6 @@ export type DemoTabParamList = {
 }
 
 export type AppStackParamList = {
-  Setup: undefined
   Main: NavigatorScreenParams<MainTabParamList>
   AddTransaction: undefined
   TransactionDetails: { transaction: FlatTransaction }

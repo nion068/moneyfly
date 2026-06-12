@@ -16,9 +16,10 @@ type AccountsScreenProps = MainTabScreenProps<"Accounts">
 
 const filters = ["All", "Bank", "Wallet", "Cash", "Credit"]
 
-export const AccountsScreen: FC<AccountsScreenProps> = () => {
+export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
   const { themed } = useAppTheme()
   const {
+    isConfigured,
     accounts: accountState,
     transactions,
     selectedMonth,
@@ -44,6 +45,7 @@ export const AccountsScreen: FC<AccountsScreenProps> = () => {
     activeFilter === "All"
       ? accountSummaries
       : accountSummaries.filter((account) => account.type === activeFilter.toLowerCase())
+  const openFireflySettings = () => navigation.navigate("Settings", { screen: "SettingsFirefly" })
 
   return (
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
@@ -103,7 +105,7 @@ export const AccountsScreen: FC<AccountsScreenProps> = () => {
         <Text
           text={`${accountState.error?.message} Tap refresh in Settings to retry.`}
           style={themed($negative)}
-          onPress={() => void refresh()}
+          onPress={() => (isConfigured ? void refresh() : openFireflySettings())}
         />
       )}
       {accountState.status !== "loading" && accounts.length === 0 && (

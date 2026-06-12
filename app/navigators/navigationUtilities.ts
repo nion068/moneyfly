@@ -15,6 +15,15 @@ import type { AppStackParamList, NavigationProps } from "./navigationTypes"
 
 type Storage = typeof storage
 
+function containsRemovedSetupRoute(state: NavigationProps["initialState"]): boolean {
+  if (!state) return false
+  return state.routes.some(
+    (route) =>
+      route.name === "Setup" ||
+      containsRemovedSetupRoute(route.state as NavigationProps["initialState"]),
+  )
+}
+
 /**
  * Reference to the root App Navigator.
  *
@@ -152,7 +161,7 @@ export function useNavigationPersistence(storage: Storage, persistenceKey: strin
       // Only restore the state if app has not started from a deep link
       if (!initialUrl) {
         const state = (await storage.load(persistenceKey)) as NavigationProps["initialState"] | null
-        if (state) setInitialNavigationState(state)
+        if (state && !containsRemovedSetupRoute(state)) setInitialNavigationState(state)
       }
     } finally {
       if (isMounted()) setIsRestored(true)

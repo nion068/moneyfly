@@ -188,6 +188,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
       params: { filterType, filterName: name },
     } as never)
   }
+  const openFireflySettings = () => navigation.navigate("Settings", { screen: "SettingsFirefly" })
 
   return (
     <>
@@ -261,7 +262,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
             <Text
               text={`${rangeTransactions.error?.message ?? "Error"} Tap to retry.`}
               style={themed($errorText)}
-              onPress={() => void loadRange()}
+              onPress={() => (isConfigured ? void loadRange() : openFireflySettings())}
             />
           )}
           {rangeTransactions.status !== "loading" &&

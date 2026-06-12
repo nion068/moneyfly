@@ -29,13 +29,26 @@ function relativeSyncLabel(lastSyncedAt?: Date) {
 
 export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
   const { themed } = useAppTheme()
-  const { accounts, categories, tags, currentUser, lastSyncedAt, transactions, isRefreshing } =
-    useFirefly()
+  const {
+    isConfigured,
+    accounts,
+    categories,
+    tags,
+    currentUser,
+    lastSyncedAt,
+    transactions,
+    isRefreshing,
+  } = useFirefly()
   const { hasApiKey, model } = useMoneyAgent()
   const connectionError = accounts.error ?? transactions.error
   const user = currentUser.data?.attributes
-  const identity = user?.name || user?.email || "Firefly user"
-  const email = user?.email && user.email !== identity ? user.email : "Connected account"
+  const identity = user?.name || user?.email || (isConfigured ? "Firefly user" : "Moneyfly")
+  const email =
+    user?.email && user.email !== identity
+      ? user.email
+      : isConfigured
+        ? "Connected account"
+        : "Firefly III is not connected"
   const initials = identity
     .split(/\s+/)
     .map((part) => part[0])
@@ -49,19 +62,23 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
   const accountTypes = new Set(activeAccounts.map((account) => account.attributes.type)).size
   const version = Application.nativeApplicationVersion ?? "dev"
   const build = Application.nativeBuildVersion
+  const openFireflySettings = () => navigation.navigate("SettingsFirefly")
 
   return (
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
       <Text text="Settings" style={themed($title)} />
 
-      <SettingsCard style={themed($profileCard)}>
+      <SettingsCard style={themed(isConfigured ? $profileCard : $disconnectedProfileCard)}>
         <View style={themed($avatar)}>
           <Text text={initials || "FF"} style={themed($avatarText)} />
         </View>
         <View style={themed($profileCopy)}>
           <Text text={identity} style={themed($profileName)} />
           <Text text={email} style={themed($muted)} />
-          <Text text="● Connected to Firefly III" style={themed($positive)} />
+          <Text
+            text={isConfigured ? "● Connected to Firefly III" : "○ Setup required"}
+            style={themed(isConfigured ? $positive : $muted)}
+          />
         </View>
       </SettingsCard>
 
@@ -69,14 +86,16 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
         <SettingsSummaryCard
           title="Firefly"
           subtitle={
-            connectionError
-              ? "Connection needs attention"
-              : `${isRefreshing ? "Syncing" : "Connected"} · ${relativeSyncLabel(lastSyncedAt)}`
+            !isConfigured
+              ? "Server URL and PAT required"
+              : connectionError
+                ? "Connection needs attention"
+                : `${isRefreshing ? "Syncing" : "Connected"} · ${relativeSyncLabel(lastSyncedAt)}`
           }
-          status={!connectionError}
+          status={isConfigured && !connectionError}
           icon="server"
           tone="blue"
-          onPress={() => navigation.navigate("SettingsFirefly")}
+          onPress={openFireflySettings}
         />
         <SettingsSummaryCard
           title="AI Assistant"
@@ -91,14 +110,18 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
           subtitle={`${accountTypes} account types · ${activeAccounts.length} accounts`}
           icon="bank-outline"
           tone="primary"
-          onPress={() => navigation.navigate("SettingsAccounts")}
+          onPress={() =>
+            isConfigured ? navigation.navigate("SettingsAccounts") : openFireflySettings()
+          }
         />
         <SettingsSummaryCard
           title="Classification"
           subtitle={`${categories.data.length} categories · ${tags.data.length} tags`}
           icon="view-grid-outline"
           tone="neutral"
-          onPress={() => navigation.navigate("SettingsClassification")}
+          onPress={() =>
+            isConfigured ? navigation.navigate("SettingsClassification") : openFireflySettings()
+          }
         />
         <SettingsSummaryCard
           title="Security"
@@ -146,6 +169,16 @@ const $profileCard: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   backgroundColor: "rgba(18, 118, 77, 0.12)",
   borderColor: "rgba(62, 165, 118, 0.36)",
+  flexDirection: "row",
+  gap: spacing.md,
+  minHeight: 86,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
+})
+const $disconnectedProfileCard: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
   flexDirection: "row",
   gap: spacing.md,
   minHeight: 86,

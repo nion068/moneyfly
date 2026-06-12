@@ -77,7 +77,7 @@ export const SettingsAccountsScreen: FC<Props> = ({ navigation }) => {
     themed,
     theme: { colors },
   } = useAppTheme()
-  const { accounts, selectedCurrency, settingsMutation, saveAccount } = useFirefly()
+  const { isConfigured, accounts, selectedCurrency, settingsMutation, saveAccount } = useFirefly()
   const [editing, setEditing] = useState<FireflyAccount | null>()
   const [editorVisible, setEditorVisible] = useState(false)
   const [name, setName] = useState("")
@@ -92,6 +92,10 @@ export const SettingsAccountsScreen: FC<Props> = ({ navigation }) => {
   })
 
   function openEditor(account?: FireflyAccount) {
+    if (!isConfigured) {
+      navigation.navigate("SettingsFirefly")
+      return
+    }
     setEditing(account ?? null)
     setName(account?.attributes.name ?? "")
     setType(account ? writableTypeFor(account) : "asset")

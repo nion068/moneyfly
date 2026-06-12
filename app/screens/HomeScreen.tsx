@@ -52,6 +52,7 @@ const monthNames = Array.from({ length: 12 }, (_, month) =>
 export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
   const { themed } = useAppTheme()
   const {
+    isConfigured,
     hideAmounts,
     toggleHideAmounts,
     selectedMonth,
@@ -134,6 +135,7 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
     Number(!!filters.endDate)
   const amount = (value: number) =>
     hideAmounts ? maskMoney(summary.currencySymbol) : formatMoney(value, summary.currencySymbol)
+  const openFireflySettings = () => navigation.navigate("Settings", { screen: "SettingsFirefly" })
 
   return (
     <>
@@ -143,6 +145,38 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
         contentContainerStyle={themed([$container, isMonthLoading && $loadingContainer])}
         ScrollViewProps={{ keyboardShouldPersistTaps: "handled" }}
       >
+        {!isConfigured ? (
+          <View style={themed($setupPromptRow)}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Connect Firefly III"
+              onPress={openFireflySettings}
+              style={({ pressed }) => themed([$setupPrompt, pressed && $setupPromptPressed])}
+            >
+              <View style={themed($setupPromptIcon)}>
+                <MaterialCommunityIcons
+                  name="server-network"
+                  size={17}
+                  style={themed($setupIcon)}
+                />
+              </View>
+              <View style={themed($setupPromptCopy)}>
+                <Text text="Connect Firefly" numberOfLines={1} style={themed($setupPromptText)} />
+                <Text
+                  text="Add your server URL and PAT to load finance data"
+                  numberOfLines={1}
+                  style={themed($setupPromptDescription)}
+                />
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={18}
+                style={themed($setupChevron)}
+              />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={themed($topBar)}>
           <Pressable
             accessibilityRole="button"
@@ -290,7 +324,7 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
 
             <SectionHeader title="Transactions" />
             {transactions.status === "error" && (
-              <Pressable onPress={() => void refresh()}>
+              <Pressable onPress={() => (isConfigured ? void refresh() : openFireflySettings())}>
                 <Text
                   text={`${transactions.error?.message} Tap to retry.`}
                   style={themed($expenseText)}
@@ -325,7 +359,9 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add manual transaction"
-        onPress={() => navigation.navigate("AddTransaction")}
+        onPress={() =>
+          isConfigured ? navigation.navigate("AddTransaction") : openFireflySettings()
+        }
         style={themed($floatingAdd)}
       >
         <MaterialCommunityIcons name="plus" size={30} style={themed($floatingAddIcon)} />
@@ -710,6 +746,55 @@ const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.md,
   padding: spacing.md,
   paddingBottom: 124,
+})
+const $setupPromptRow: ThemedStyle<ViewStyle> = () => ({
+  width: "100%",
+})
+const $setupPrompt: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.tertiary500,
+  borderColor: colors.palette.tertiary300,
+  borderRadius: 24,
+  borderWidth: 1,
+  flexDirection: "row",
+  gap: spacing.xs,
+  minHeight: 52,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: spacing.xs,
+  width: "100%",
+})
+const $setupPromptPressed: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.84,
+  transform: [{ scale: 0.98 }],
+})
+const $setupPromptIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.tertiary300,
+  borderRadius: 15,
+  height: 30,
+  justifyContent: "center",
+  width: 30,
+})
+const $setupPromptCopy: ThemedStyle<ViewStyle> = () => ({
+  flex: 1,
+})
+const $setupPromptText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.palette.tertiary100,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 14,
+  lineHeight: 18,
+})
+const $setupPromptDescription: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary100,
+  fontSize: 11,
+  lineHeight: 15,
+  opacity: 0.78,
+})
+const $setupIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.surfaceDim,
+})
+const $setupChevron: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary100,
 })
 
 const $monthLoading: ThemedStyle<ViewStyle> = () => ({

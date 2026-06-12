@@ -20,8 +20,13 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
   route,
 }) => {
   const { themed } = useAppTheme()
-  const { deleteTransaction, resetTransactionDeletion, transactionDeletion, transactions } =
-    useFirefly()
+  const {
+    isConfigured,
+    deleteTransaction,
+    resetTransactionDeletion,
+    transactionDeletion,
+    transactions,
+  } = useFirefly()
   const { transaction } = route.params
   const isSplit =
     transactions.data.filter((item) => item.groupId === transaction.groupId).length > 1
@@ -32,6 +37,15 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
     resetTransactionDeletion()
     return resetTransactionDeletion
   }, [resetTransactionDeletion])
+
+  useEffect(() => {
+    if (!isConfigured) {
+      navigation.replace("Main", {
+        screen: "Settings",
+        params: { screen: "SettingsFirefly" },
+      })
+    }
+  }, [isConfigured, navigation])
 
   const confirmDelete = async () => {
     const deleted = await deleteTransaction(transaction.groupId)
@@ -49,6 +63,8 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
   const closeDeleteDialog = () => {
     if (!isDeleting) setIsDeleteDialogVisible(false)
   }
+
+  if (!isConfigured) return null
 
   return (
     <Screen
