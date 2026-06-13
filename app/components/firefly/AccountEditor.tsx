@@ -335,6 +335,7 @@ export function AccountEditor({
         title={account ? "Edit Account" : "New Account"}
         saving={saving}
         canSave={!!name.trim()}
+        focusOnChangeKey={validationError ?? requestError ?? ""}
         secondarySaveLabel={account ? undefined : "Save and Add Another"}
         onClose={onClose}
         onSave={() => void save()}

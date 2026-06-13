@@ -198,6 +198,7 @@ export const SettingsClassificationScreen: FC<Props> = ({ navigation }) => {
         title={`${editor?.id ? "Edit" : "New"} ${editor?.kind === "tag" ? "Tag" : "Category"}`}
         saving={settingsMutation.status === "loading"}
         canSave={!!value.trim()}
+        focusOnChangeKey={settingsMutation.error?.message ?? ""}
         secondarySaveLabel={editor?.id ? undefined : "Save and Add Another"}
         onClose={() => setEditor(null)}
         onSave={() => void saveCurrent()}

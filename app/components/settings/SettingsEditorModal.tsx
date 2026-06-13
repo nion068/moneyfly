@@ -1,4 +1,4 @@
-import { ReactNode } from "react"
+import { ReactNode, useEffect, useRef } from "react"
 import {
   ActivityIndicator,
   Modal,
@@ -23,6 +23,7 @@ export function SettingsEditorModal({
   secondarySaveLabel,
   saving,
   canSave,
+  focusOnChangeKey,
   onClose,
   onSave,
   onSecondarySave,
@@ -34,6 +35,7 @@ export function SettingsEditorModal({
   secondarySaveLabel?: string
   saving?: boolean
   canSave: boolean
+  focusOnChangeKey?: string | number | boolean | null
   onClose: () => void
   onSave: () => void
   onSecondarySave?: () => void
@@ -42,6 +44,14 @@ export function SettingsEditorModal({
     themed,
     theme: { colors },
   } = useAppTheme()
+  const scrollRef = useRef<ScrollView>(null)
+
+  useEffect(() => {
+    if (!visible || !focusOnChangeKey) return
+    const id = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0)
+    return () => clearTimeout(id)
+  }, [focusOnChangeKey, visible])
+
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
       <KeyboardAvoidingView behavior="padding" style={themed($keyboardView)}>
@@ -57,6 +67,7 @@ export function SettingsEditorModal({
               contentContainerStyle={themed($body)}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              ref={scrollRef}
               style={themed($bodyScroll)}
             >
               {children}
