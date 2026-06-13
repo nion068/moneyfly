@@ -18,6 +18,7 @@ import {
   FireflyAccount,
   FireflyBudget,
   FireflyCategory,
+  FireflyCurrency,
   FireflyTag,
   FireflyTransaction,
   FireflyUser,
@@ -53,6 +54,7 @@ type FireflyContextType = {
   selectedMonth: Date
   isMonthLoading: boolean
   accounts: LoadState<FireflyAccount[]>
+  currencies: LoadState<FireflyCurrency[]>
   transactions: LoadState<FlatTransaction[]>
   categories: LoadState<FireflyCategory[]>
   budgets: LoadState<FireflyBudget[]>
@@ -105,6 +107,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   )
   const [isMonthLoading, setIsMonthLoading] = useState(false)
   const [accounts, setAccounts] = useState(() => emptyState<FireflyAccount[]>([]))
+  const [currencies, setCurrencies] = useState(() => emptyState<FireflyCurrency[]>([]))
   const [transactions, setTransactions] = useState(() => emptyState<FlatTransaction[]>([]))
   const [categories, setCategories] = useState(() => emptyState<FireflyCategory[]>([]))
   const [budgets, setBudgets] = useState(() => emptyState<FireflyBudget[]>([]))
@@ -138,6 +141,8 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       if (manual) setIsRefreshing(true)
       else {
         if (accounts.data.length === 0) setAccounts((state) => ({ ...state, status: "loading" }))
+        if (currencies.data.length === 0)
+          setCurrencies((state) => ({ ...state, status: "loading" }))
         if (transactions.data.length === 0)
           setTransactions((state) => ({ ...state, status: "loading" }))
         if (categories.data.length === 0)
@@ -150,6 +155,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       const range = getMonthRange(selectedMonth)
       const [
         accountResult,
+        currencyResult,
         transactionResult,
         categoryResult,
         budgetResult,
@@ -157,6 +163,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
         userResult,
       ] = await Promise.all([
         api.getAccounts(),
+        api.getCurrencies(),
         api.getTransactions(range),
         api.getCategories(),
         api.getBudgets(),
@@ -174,6 +181,15 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       }
       apply(accountResult, setAccounts)
       apply(
+        currencyResult.kind === "ok"
+          ? {
+              kind: "ok",
+              data: currencyResult.data.filter((currency) => currency.attributes.enabled !== false),
+            }
+          : currencyResult,
+        setCurrencies,
+      )
+      apply(
         transactionResult.kind === "ok"
           ? { kind: "ok", data: flattenFireflyTransactions(transactionResult.data) }
           : transactionResult,
@@ -190,6 +206,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
 
       const results = [
         accountResult,
+        currencyResult,
         transactionResult,
         categoryResult,
         budgetResult,
@@ -205,6 +222,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       baseUrl,
       budgets.data.length,
       categories.data.length,
+      currencies.data.length,
       isConfigured,
       selectedMonth,
       tags.data.length,
@@ -256,6 +274,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setStoredToken(undefined)
     setConnectionError(undefined)
     setAccounts(emptyState([]))
+    setCurrencies(emptyState([]))
     setTransactions(emptyState([]))
     setCategories(emptyState([]))
     setBudgets(emptyState([]))
@@ -413,6 +432,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       selectedMonth,
       isMonthLoading,
       accounts,
+      currencies,
       transactions,
       categories,
       budgets,
@@ -459,6 +479,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       connectionError,
       currentUser,
       createTransaction,
+      currencies,
       deleteTransaction,
       disconnect,
       hideAmounts,

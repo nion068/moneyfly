@@ -103,7 +103,7 @@ function accountToEntity(account: FireflyAccount): MoneyAgentEntity {
     id: account.id,
     name: account.attributes.name,
     type: account.attributes.type,
-    role: account.attributes.account_role,
+    role: account.attributes.account_role ?? undefined,
     currencyCode: account.attributes.currency_code,
   }
 }

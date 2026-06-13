@@ -2,10 +2,10 @@ import { FC, useState } from "react"
 import { Pressable, ScrollView, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 
+import { AccountEditor } from "@/components/firefly/AccountEditor"
 import { Chip } from "@/components/firefly/FinancePrimitives"
 import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
 import { Screen } from "@/components/Screen"
-import { SettingsEditorModal } from "@/components/settings/SettingsEditorModal"
 import { SettingsCard, SettingsIcon } from "@/components/settings/SettingsPrimitives"
 import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
@@ -14,7 +14,6 @@ import type { FireflyAccount } from "@/models/firefly"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
 import {
   accountGroupFor,
-  accountWritableType,
   formatMoney,
   isOwnedAccount,
   type AccountGroup,
@@ -56,9 +55,11 @@ export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
   const {
     isConfigured,
     accounts: accountState,
+    currencies,
     selectedCurrency,
     settingsMutation,
     saveAccount,
+    resetSettingsMutation,
     refresh,
     isRefreshing,
   } = useFirefly()
@@ -66,9 +67,6 @@ export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
   const [search, setSearch] = useState("")
   const [editing, setEditing] = useState<FireflyAccount | null>()
   const [editorVisible, setEditorVisible] = useState(false)
-  const [name, setName] = useState("")
-  const [type, setType] = useState("asset")
-  const [currency, setCurrency] = useState(selectedCurrency ?? "USD")
   const [expandedGroups, setExpandedGroups] = useState<Record<AccountGroup, boolean>>({
     asset: true,
     expense: true,
@@ -119,24 +117,19 @@ export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
       openFireflySettings()
       return
     }
+    resetSettingsMutation()
     setEditing(account ?? null)
-    setName(account?.attributes.name ?? "")
-    setType(account ? accountWritableType(account) : "asset")
-    setCurrency(account?.attributes.currency_code ?? selectedCurrency ?? "USD")
     setEditorVisible(true)
   }
 
-  async function save() {
-    const ok = await saveAccount(
-      {
-        name: name.trim(),
-        type: type.trim().toLowerCase(),
-        currency_code: currency.trim().toUpperCase(),
-        active: editing?.attributes.active !== false,
-      },
-      editing?.id,
-    )
-    if (ok) setEditorVisible(false)
+  async function save(
+    request: Parameters<typeof saveAccount>[0],
+    id?: string,
+    keepOpenOnSuccess?: boolean,
+  ) {
+    const ok = await saveAccount(request, id)
+    if (ok && !keepOpenOnSuccess) setEditorVisible(false)
+    return ok
   }
 
   function toggleGroup(group: AccountGroup) {
@@ -324,33 +317,19 @@ export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
         ) : null}
       </Screen>
 
-      <SettingsEditorModal
+      <AccountEditor
         visible={editorVisible}
-        title={editing ? "Edit Account" : "New Account"}
+        account={editing}
+        currencies={currencies.data}
+        selectedCurrency={selectedCurrency}
         saving={settingsMutation.status === "loading"}
-        canSave={!!name.trim() && !!type.trim() && !!currency.trim()}
-        onClose={() => setEditorVisible(false)}
-        onSave={() => void save()}
-      >
-        <TextField label="Name" value={name} onChangeText={setName} />
-        <TextField
-          label="Firefly account type"
-          value={type}
-          onChangeText={setType}
-          autoCapitalize="none"
-          helper="Examples: asset, expense, revenue, liability"
-        />
-        <TextField
-          label="Currency code"
-          value={currency}
-          onChangeText={setCurrency}
-          autoCapitalize="characters"
-          maxLength={3}
-        />
-        {settingsMutation.error ? (
-          <Text text={settingsMutation.error.message} style={themed($negative)} />
-        ) : null}
-      </SettingsEditorModal>
+        onClose={() => {
+          setEditorVisible(false)
+          resetSettingsMutation()
+        }}
+        requestError={settingsMutation.error?.message}
+        onSave={save}
+      />
     </>
   )
 }

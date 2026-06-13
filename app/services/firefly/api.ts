@@ -4,6 +4,7 @@ import {
   FireflyAccount,
   FireflyBudget,
   FireflyCategory,
+  FireflyCurrency,
   FireflyEnvelope,
   FireflySingleEnvelope,
   FireflyTag,
@@ -114,6 +115,10 @@ export class FireflyApi {
 
   async getAccounts(type = "all"): Promise<FireflyResult<FireflyAccount[]>> {
     return this.getCollection<FireflyAccount>("api/v1/accounts", { type })
+  }
+
+  async getCurrencies(): Promise<FireflyResult<FireflyCurrency[]>> {
+    return this.getCollection<FireflyCurrency>("api/v1/currencies")
   }
 
   async getTransactions(params: {

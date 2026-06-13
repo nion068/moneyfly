@@ -29,20 +29,69 @@ export type FireflyAccount = {
     name: string
     type: string
     active?: boolean
-    account_role?: string
+    account_role?: string | null
     balance?: string
     current_balance?: string
     currency_code?: string
     currency_symbol?: string
     currency_decimal_places?: number
+    account_number?: string | null
+    opening_balance?: string | null
+    opening_balance_date?: string | null
+    virtual_balance?: string | null
+    include_net_worth?: boolean
+    notes?: string | null
+    liability_type?: LiabilityType | null
+    liability_direction?: LiabilityDirection | null
+    interest?: string | null
+    interest_period?: InterestPeriod | null
+    credit_card_type?: CreditCardType | null
+    monthly_payment_date?: string | null
   }
 }
 
+export type AccountType = "asset" | "expense" | "revenue" | "liability"
+export type AccountRole =
+  | "defaultAsset"
+  | "sharedAsset"
+  | "savingAsset"
+  | "ccAsset"
+  | "cashWalletAsset"
+export type LiabilityType = "loan" | "debt" | "mortgage"
+export type LiabilityDirection = "credit" | "debit"
+export type InterestPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "half-year" | "yearly"
+export type CreditCardType = "monthlyFull"
+
 export type StoreAccountRequest = {
   name: string
-  type: string
-  currency_code: string
+  type: AccountType
+  currency_code?: string
   active: boolean
+  account_number?: string | null
+  opening_balance?: string | null
+  opening_balance_date?: string | null
+  account_role?: AccountRole | null
+  virtual_balance?: string | null
+  include_net_worth?: boolean
+  notes?: string | null
+  liability_type?: LiabilityType
+  liability_direction?: LiabilityDirection
+  interest?: string
+  interest_period?: InterestPeriod
+  credit_card_type?: CreditCardType | null
+  monthly_payment_date?: string | null
+}
+
+export type FireflyCurrency = {
+  id: string
+  attributes: {
+    code: string
+    name: string
+    symbol: string
+    decimal_places?: number
+    enabled?: boolean
+    primary?: boolean
+  }
 }
 
 export type StoreCategoryRequest = {

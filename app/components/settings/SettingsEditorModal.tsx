@@ -20,19 +20,23 @@ export function SettingsEditorModal({
   title,
   children,
   saveLabel = "Save",
+  secondarySaveLabel,
   saving,
   canSave,
   onClose,
   onSave,
+  onSecondarySave,
 }: {
   visible: boolean
   title: string
   children: ReactNode
   saveLabel?: string
+  secondarySaveLabel?: string
   saving?: boolean
   canSave: boolean
   onClose: () => void
   onSave: () => void
+  onSecondarySave?: () => void
 }) {
   const {
     themed,
@@ -57,26 +61,49 @@ export function SettingsEditorModal({
             >
               {children}
             </ScrollView>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ busy: saving, disabled: saving || !canSave }}
-              disabled={saving || !canSave}
-              onPress={onSave}
-              style={({ pressed }) =>
-                themed([
-                  $saveButton,
-                  pressed && $saveButtonPressed,
-                  (saving || !canSave) && $saveButtonDisabled,
-                ])
-              }
-            >
-              {saving ? (
-                <ActivityIndicator color={colors.palette.surfaceDim} size="small" />
-              ) : (
-                <MaterialCommunityIcons name="check" color={colors.palette.surfaceDim} size={20} />
+            <View style={themed($actions)}>
+              {!!secondarySaveLabel && !!onSecondarySave && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: saving, disabled: saving || !canSave }}
+                  disabled={saving || !canSave}
+                  onPress={onSecondarySave}
+                  style={({ pressed }) =>
+                    themed([
+                      $secondarySaveButton,
+                      pressed && $saveButtonPressed,
+                      (saving || !canSave) && $saveButtonDisabled,
+                    ])
+                  }
+                >
+                  <Text text={secondarySaveLabel} style={themed($secondarySaveButtonText)} />
+                </Pressable>
               )}
-              <Text text={saving ? "Saving..." : saveLabel} style={themed($saveButtonText)} />
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ busy: saving, disabled: saving || !canSave }}
+                disabled={saving || !canSave}
+                onPress={onSave}
+                style={({ pressed }) =>
+                  themed([
+                    $saveButton,
+                    pressed && $saveButtonPressed,
+                    (saving || !canSave) && $saveButtonDisabled,
+                  ])
+                }
+              >
+                {saving ? (
+                  <ActivityIndicator color={colors.palette.surfaceDim} size="small" />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="check"
+                    color={colors.palette.surfaceDim}
+                    size={20}
+                  />
+                )}
+                <Text text={saving ? "Saving..." : saveLabel} style={themed($saveButtonText)} />
+              </Pressable>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -125,12 +152,24 @@ const $body: ThemedStyle<ViewStyle> = ({ spacing }) => ({ gap: spacing.sm })
 const $bodyScroll: ThemedStyle<ViewStyle> = () => ({
   flexShrink: 1,
 })
+const $actions: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  gap: spacing.xs,
+})
 const $saveButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   alignItems: "center",
   backgroundColor: colors.tint,
   borderRadius: 18,
   flexDirection: "row",
   gap: spacing.xs,
+  justifyContent: "center",
+  minHeight: 48,
+  paddingHorizontal: spacing.md,
+})
+const $secondarySaveButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  borderColor: colors.tint,
+  borderRadius: 18,
+  borderWidth: 1,
   justifyContent: "center",
   minHeight: 48,
   paddingHorizontal: spacing.md,
@@ -143,6 +182,11 @@ const $saveButtonDisabled: ThemedStyle<ViewStyle> = () => ({
 })
 const $saveButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.palette.surfaceDim,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 15,
+})
+const $secondarySaveButtonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.tint,
   fontFamily: typography.primary.semiBold,
   fontSize: 15,
 })

@@ -32,6 +32,46 @@ describe("FireflyApi", () => {
     expect(get).toHaveBeenLastCalledWith("api/v1/accounts", { page: 7, type: "all" })
   })
 
+  it("loads enabled currency metadata from Firefly", async () => {
+    const get = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        data: [
+          {
+            id: "usd",
+            attributes: {
+              code: "USD",
+              name: "US Dollar",
+              symbol: "$",
+              enabled: true,
+              primary: true,
+            },
+          },
+        ],
+      },
+    })
+    ;(create as jest.Mock).mockReturnValue({ get, post: jest.fn(), put: jest.fn() })
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").getCurrencies(),
+    ).resolves.toEqual({
+      kind: "ok",
+      data: [
+        {
+          id: "usd",
+          attributes: {
+            code: "USD",
+            name: "US Dollar",
+            symbol: "$",
+            enabled: true,
+            primary: true,
+          },
+        },
+      ],
+    })
+    expect(get).toHaveBeenCalledWith("api/v1/currencies", { page: 1 })
+  })
+
   it("creates a transaction through Firefly", async () => {
     const post = jest.fn().mockResolvedValue({
       ok: true,
@@ -166,8 +206,25 @@ describe("FireflyApi", () => {
       type: "asset",
       currency_code: "USD",
       active: true,
+      account_role: "defaultAsset",
+      opening_balance: null,
+      opening_balance_date: null,
+      include_net_worth: true,
+      notes: null,
     })
     await api.createCategory({ name: "Food" })
+    await api.updateAccount("account-2", {
+      name: "Loan",
+      type: "liability",
+      currency_code: "USD",
+      active: true,
+      opening_balance: "5000",
+      opening_balance_date: "2026-02-03T00:00:00.000Z",
+      liability_type: "loan",
+      liability_direction: "debit",
+      interest: "3.5",
+      interest_period: "monthly",
+    })
     await api.updateTag("tag-1", { tag: "monthly" })
 
     expect(post).toHaveBeenNthCalledWith(1, "api/v1/accounts", {
@@ -175,8 +232,25 @@ describe("FireflyApi", () => {
       type: "asset",
       currency_code: "USD",
       active: true,
+      account_role: "defaultAsset",
+      opening_balance: null,
+      opening_balance_date: null,
+      include_net_worth: true,
+      notes: null,
     })
     expect(post).toHaveBeenNthCalledWith(2, "api/v1/categories", { name: "Food" })
-    expect(put).toHaveBeenCalledWith("api/v1/tags/tag-1", { tag: "monthly" })
+    expect(put).toHaveBeenNthCalledWith(1, "api/v1/accounts/account-2", {
+      name: "Loan",
+      type: "liability",
+      currency_code: "USD",
+      active: true,
+      opening_balance: "5000",
+      opening_balance_date: "2026-02-03T00:00:00.000Z",
+      liability_type: "loan",
+      liability_direction: "debit",
+      interest: "3.5",
+      interest_period: "monthly",
+    })
+    expect(put).toHaveBeenNthCalledWith(2, "api/v1/tags/tag-1", { tag: "monthly" })
   })
 })

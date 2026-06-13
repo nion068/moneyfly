@@ -69,9 +69,25 @@ jest.mock("@/context/FireflyContext", () => ({
   useFirefly: () => ({
     isConfigured: mockIsConfigured,
     accounts: { data: accounts, status: "ready" },
+    currencies: {
+      data: [
+        {
+          id: "usd",
+          attributes: {
+            code: "USD",
+            name: "US Dollar",
+            symbol: "$",
+            enabled: true,
+            primary: true,
+          },
+        },
+      ],
+      status: "ready",
+    },
     selectedCurrency: "USD",
     settingsMutation: { data: null, status: "idle" },
     saveAccount: mockSaveAccount,
+    resetSettingsMutation: jest.fn(),
     refresh: jest.fn(),
     isRefreshing: false,
   }),
@@ -128,14 +144,12 @@ describe("AccountsScreen", () => {
   })
 
   it("creates an account from the header plus button", async () => {
-    const { getAllByDisplayValue, getByLabelText, getByText } = renderScreen()
+    const { getByLabelText, getByText } = renderScreen()
 
     fireEvent.press(getByLabelText("Add account"))
 
     expect(getByText("New Account")).toBeTruthy()
-    const emptyInputs = getAllByDisplayValue("")
-    const nameInput = emptyInputs[emptyInputs.length - 1]
-    fireEvent.changeText(nameInput, "Savings")
+    fireEvent.changeText(getByLabelText("Account name"), "Savings")
     fireEvent.press(getByText("Save"))
 
     await waitFor(() => {
@@ -145,10 +159,33 @@ describe("AccountsScreen", () => {
           type: "asset",
           currency_code: "USD",
           active: true,
+          account_number: null,
+          opening_balance: null,
+          opening_balance_date: null,
+          account_role: "defaultAsset",
+          virtual_balance: null,
+          include_net_worth: true,
+          notes: null,
+          credit_card_type: null,
+          monthly_payment_date: null,
         },
         undefined,
       )
     })
+  })
+
+  it("keeps the account editor open and resets it after saving and adding another", async () => {
+    const { getByLabelText, getByText } = renderScreen()
+
+    fireEvent.press(getByLabelText("Add account"))
+    fireEvent.changeText(getByLabelText("Account name"), "Savings")
+    fireEvent.press(getByText("Save and Add Another"))
+
+    await waitFor(() => expect(getByLabelText("Account name").props.value).toBe(""))
+    expect(getByText("New Account")).toBeTruthy()
+    expect(getByLabelText("Account Type")).toHaveTextContent("Asset")
+    expect(getByLabelText("Currency")).toHaveTextContent("USD")
+    expect(mockSaveAccount).toHaveBeenCalledTimes(1)
   })
 
   it("opens Firefly settings from the plus button when disconnected", () => {
