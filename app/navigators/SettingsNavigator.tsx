@@ -1,6 +1,5 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack"
 
-import { SettingsAccountsScreen } from "@/screens/SettingsAccountsScreen"
 import { SettingsAiAssistantScreen } from "@/screens/SettingsAiAssistantScreen"
 import { SettingsClassificationScreen } from "@/screens/SettingsClassificationScreen"
 import { SettingsFireflyScreen } from "@/screens/SettingsFireflyScreen"
@@ -17,7 +16,6 @@ export function SettingsNavigator() {
       <Stack.Screen name="SettingsHome" component={SettingsScreen} />
       <Stack.Screen name="SettingsFirefly" component={SettingsFireflyScreen} />
       <Stack.Screen name="SettingsAiAssistant" component={SettingsAiAssistantScreen} />
-      <Stack.Screen name="SettingsAccounts" component={SettingsAccountsScreen} />
       <Stack.Screen name="SettingsClassification" component={SettingsClassificationScreen} />
       <Stack.Screen name="SettingsSecurity" component={SettingsSecurityScreen} />
     </Stack.Navigator>

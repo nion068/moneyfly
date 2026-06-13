@@ -171,6 +171,49 @@ export function isVisibleAccount(account: FireflyAccount) {
   return account.attributes.name.trim().toLowerCase() !== "cash account"
 }
 
+export type AccountGroup = "asset" | "expense" | "revenue" | "liability"
+
+export function accountGroupFor(account: FireflyAccount): AccountGroup | null {
+  if (!isVisibleAccount(account)) return null
+
+  const type = account.attributes.type.toLowerCase()
+  if (
+    type.includes("initial balance") ||
+    type.includes("reconciliation") ||
+    type.includes("import")
+  ) {
+    return null
+  }
+  if (type.includes("expense") || type.includes("beneficiary")) return "expense"
+  if (type.includes("revenue")) return "revenue"
+  if (
+    type.includes("liabil") ||
+    type.includes("debt") ||
+    type.includes("loan") ||
+    type.includes("mortgage")
+  ) {
+    return "liability"
+  }
+  if (type.includes("asset") || type.includes("cash") || type.includes("default")) return "asset"
+  return null
+}
+
+export function accountWritableType(account: FireflyAccount) {
+  const type = account.attributes.type.toLowerCase()
+  if (type.includes("cash")) return "cash"
+  if (type.includes("expense") || type.includes("beneficiary")) return "expense"
+  if (type.includes("revenue")) return "revenue"
+  if (
+    type.includes("liabil") ||
+    type.includes("loan") ||
+    type.includes("debt") ||
+    type.includes("mortgage")
+  ) {
+    return "liability"
+  }
+  return "asset"
+}
+
 export function isOwnedAccount(account: FireflyAccount) {
   const type = account.attributes.type.toLowerCase()
   return (

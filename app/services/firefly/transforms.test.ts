@@ -1,7 +1,9 @@
 import type { FireflyAccount, FireflyTransaction, TransactionDraft } from "@/models/firefly"
 import { normalizeBaseUrl as normalizeApiBaseUrl } from "@/services/firefly/api"
 import {
+  accountGroupFor,
   accountToSummary,
+  accountWritableType,
   buildAnalyticsTrend,
   buildMonthlySummary,
   buildSummariesByCurrency,
@@ -234,6 +236,26 @@ describe("Firefly transforms", () => {
     expect(isExpenseAccount(expense)).toBe(true)
     expect(isRevenueAccount(revenue)).toBe(true)
     expect(isOwnedAccount(expense)).toBe(false)
+  })
+
+  it("groups manageable Firefly account types for account management", () => {
+    const accounts: FireflyAccount[] = [
+      { id: "asset", attributes: { name: "Bank", type: "asset" } },
+      { id: "expense", attributes: { name: "Groceries", type: "beneficiary" } },
+      { id: "revenue", attributes: { name: "Salary", type: "revenue" } },
+      { id: "liability", attributes: { name: "Mortgage", type: "loan" } },
+      { id: "system", attributes: { name: "Opening balance", type: "initial balance" } },
+    ]
+
+    expect(accounts.map(accountGroupFor)).toEqual([
+      "asset",
+      "expense",
+      "revenue",
+      "liability",
+      null,
+    ])
+    expect(accountWritableType(accounts[1])).toBe("expense")
+    expect(accountWritableType(accounts[3])).toBe("liability")
   })
 
   it("hides only the generated cash account from account selectors", () => {

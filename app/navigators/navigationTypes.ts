@@ -21,7 +21,6 @@ export type SettingsStackParamList = {
   SettingsHome: undefined
   SettingsFirefly: undefined
   SettingsAiAssistant: undefined
-  SettingsAccounts: undefined
   SettingsClassification: undefined
   SettingsSecurity: undefined
 }
