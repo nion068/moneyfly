@@ -52,13 +52,15 @@ export const SettingsClassificationScreen: FC<Props> = ({ navigation }) => {
     setValue(next.value)
   }
 
-  async function save() {
+  async function saveCurrent(keepOpenOnSuccess = false) {
     if (!editor) return
     const ok =
       editor.kind === "category"
         ? await saveCategory({ name: value.trim() }, editor.id)
         : await saveTag({ tag: value.trim() }, editor.id)
-    if (ok) setEditor(null)
+    if (!ok) return
+    if (keepOpenOnSuccess) setValue("")
+    else setEditor(null)
   }
 
   function confirmDelete(kind: "category" | "tag", id: string, label: string) {
@@ -196,10 +198,13 @@ export const SettingsClassificationScreen: FC<Props> = ({ navigation }) => {
         title={`${editor?.id ? "Edit" : "New"} ${editor?.kind === "tag" ? "Tag" : "Category"}`}
         saving={settingsMutation.status === "loading"}
         canSave={!!value.trim()}
+        secondarySaveLabel={editor?.id ? undefined : "Save and Add Another"}
         onClose={() => setEditor(null)}
-        onSave={() => void save()}
+        onSave={() => void saveCurrent()}
+        onSecondarySave={editor?.id ? undefined : () => void saveCurrent(true)}
       >
         <TextField
+          accessibilityLabel={editor?.kind === "tag" ? "Tag" : "Category name"}
           label={editor?.kind === "tag" ? "Tag" : "Category name"}
           value={value}
           onChangeText={setValue}
