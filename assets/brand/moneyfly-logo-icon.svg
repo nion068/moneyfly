@@ -1,0 +1,30 @@
+<svg width="100%" viewBox="0 0 680 280" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>MoneyFly Logo Icon</title>
+  <desc>MoneyFly finance app icon — wallet with cash bills peeking out, in green</desc>
+
+  <g transform="rotate(-8, 305, 155)">
+    <rect x="272" y="108" width="66" height="38" rx="4" fill="#2e7a57"/>
+    <rect x="278" y="114" width="54" height="26" rx="2" fill="none" stroke="#4db882" stroke-width="1.2"/>
+    <line x1="305" y1="114" x2="305" y2="140" stroke="#4db882" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <g transform="rotate(0, 340, 150)">
+    <rect x="307" y="100" width="66" height="38" rx="4" fill="#3d9a6e"/>
+    <rect x="313" y="106" width="54" height="26" rx="2" fill="none" stroke="#6bcf9a" stroke-width="1.2"/>
+    <line x1="340" y1="106" x2="340" y2="132" stroke="#6bcf9a" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <g transform="rotate(8, 375, 155)">
+    <rect x="342" y="108" width="66" height="38" rx="4" fill="#2e7a57"/>
+    <rect x="348" y="114" width="54" height="26" rx="2" fill="none" stroke="#4db882" stroke-width="1.2"/>
+    <line x1="375" y1="114" x2="375" y2="140" stroke="#4db882" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <rect x="258" y="148" width="164" height="112" rx="12" fill="#3d9a6e"/>
+  <rect x="258" y="148" width="164" height="32" rx="12" fill="#2e7a57"/>
+  <rect x="258" y="168" width="164" height="12" fill="#2e7a57"/>
+  <rect x="278" y="188" width="88" height="52" rx="6" fill="#2e7a57"/>
+  <rect x="284" y="194" width="76" height="14" rx="3" fill="#4db882" opacity="0.5"/>
+  <circle cx="382" cy="214" r="22" fill="#2e7a57"/>
+  <circle cx="340" cy="164" r="5" fill="#4db882"/>
+</svg>

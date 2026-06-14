@@ -2,7 +2,6 @@ import { ErrorInfo } from "react"
 import { ScrollView, TextStyle, View, ViewStyle } from "react-native"
 
 import { Button } from "@/components/Button"
-import { Icon } from "@/components/Icon"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { useAppTheme } from "@/theme/context"
@@ -28,7 +27,9 @@ export function ErrorDetails(props: ErrorDetailsProps) {
       contentContainerStyle={themed($contentContainer)}
     >
       <View style={$topSection}>
-        <Icon icon="ladybug" size={64} />
+        <View style={themed($errorMark)}>
+          <Text text="!" style={themed($errorMarkText)} />
+        </View>
         <Text style={themed($heading)} preset="subheading" tx="errorScreen:title" />
         <Text tx="errorScreen:friendlySubtitle" />
       </View>
@@ -66,6 +67,24 @@ const $topSection: ViewStyle = {
   flex: 1,
   alignItems: "center",
 }
+
+const $errorMark: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  borderColor: colors.error,
+  borderRadius: 32,
+  borderWidth: 3,
+  height: 64,
+  justifyContent: "center",
+  marginBottom: spacing.md,
+  width: 64,
+})
+
+const $errorMarkText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.error,
+  fontFamily: typography.primary.bold,
+  fontSize: 40,
+  lineHeight: 46,
+})
 
 const $heading: ThemedStyle<TextStyle> = ({ colors, spacing }) => ({
   color: colors.error,

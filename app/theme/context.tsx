@@ -42,6 +42,9 @@ export interface ThemeProviderProps {
   initialContext?: ThemeContextModeT
 }
 
+const THEME_STORAGE_KEY = "moneyfly.themeScheme"
+const LEGACY_THEME_STORAGE_KEY = "ignite.themeScheme"
+
 /**
  * The ThemeProvider is the heart and soul of the design token system. It provides a context wrapper
  * for your entire app to consume the design tokens as well as global functionality like the app's theme.
@@ -49,7 +52,6 @@ export interface ThemeProviderProps {
  * To get started, you want to wrap your entire app's JSX hierarchy in `ThemeProvider`
  * and then use the `useAppTheme()` hook to access the theme context.
  *
- * Documentation: https://docs.infinite.red/ignite-cli/boilerplate/app/theme/Theming/
  */
 export const ThemeProvider: FC<PropsWithChildren<ThemeProviderProps>> = ({
   children,
@@ -58,7 +60,17 @@ export const ThemeProvider: FC<PropsWithChildren<ThemeProviderProps>> = ({
   // The operating system theme:
   const systemColorScheme = useColorScheme()
   // Our saved theme context: can be "light", "dark", or undefined (system theme)
-  const [themeScheme, setThemeScheme] = useMMKVString("ignite.themeScheme", storage)
+  const [themeScheme, setThemeScheme] = useMMKVString(THEME_STORAGE_KEY, storage)
+
+  useEffect(() => {
+    if (themeScheme !== undefined) return
+
+    const legacyThemeScheme = storage.getString(LEGACY_THEME_STORAGE_KEY)
+    if (legacyThemeScheme === "light" || legacyThemeScheme === "dark") {
+      setThemeScheme(legacyThemeScheme)
+    }
+    storage.delete(LEGACY_THEME_STORAGE_KEY)
+  }, [setThemeScheme, themeScheme])
 
   /**
    * This function is used to set the theme context and is exported from the useAppTheme() hook.
@@ -134,7 +146,6 @@ export const ThemeProvider: FC<PropsWithChildren<ThemeProviderProps>> = ({
 
 /**
  * This is the primary hook that you will use to access the theme context in your components.
- * Documentation: https://docs.infinite.red/ignite-cli/boilerplate/app/theme/useAppTheme.tsx/
  */
 export const useAppTheme = () => {
   const context = useContext(ThemeContext)

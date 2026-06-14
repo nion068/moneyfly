@@ -17,21 +17,23 @@ import "tsx/cjs"
 module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
   const existingPlugins = config.plugins ?? []
   const variant = process.env.APP_VARIANT ?? "production"
+  const baseIdentifier = process.env.APP_IDENTIFIER ?? "com.moneyfly"
+  const easProjectId = process.env.EAS_PROJECT_ID
   const variants = {
     development: {
       name: "Moneyfly Dev",
       scheme: "moneyfly-dev",
-      identifier: "com.moneyfly.dev",
+      identifier: `${baseIdentifier}.dev`,
     },
     preview: {
       name: "Moneyfly Preview",
       scheme: "moneyfly-preview",
-      identifier: "com.moneyfly.preview",
+      identifier: `${baseIdentifier}.preview`,
     },
     production: {
       name: config.name,
       scheme: config.scheme,
-      identifier: "com.moneyfly",
+      identifier: baseIdentifier,
     },
   } as const
   const app = variants[variant as keyof typeof variants]
@@ -67,6 +69,10 @@ module.exports = ({ config }: ConfigContext): Partial<ExpoConfig> => {
           },
         ],
       },
+    },
+    extra: {
+      ...(typeof config.extra === "object" && config.extra !== null ? config.extra : {}),
+      ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
     },
     plugins: [
       ...existingPlugins,

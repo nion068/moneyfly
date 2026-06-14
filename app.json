@@ -1,5 +1,5 @@
 {
-  "name": "moneyfly",
+  "name": "Moneyfly",
   "slug": "moneyfly",
   "scheme": "moneyfly",
   "version": "1.0.0",
@@ -9,9 +9,7 @@
   "updates": {
     "fallbackToCacheTimeout": 0
   },
-  "assetBundlePatterns": [
-    "**/*"
-  ],
+  "assetBundlePatterns": ["**/*"],
   "android": {
     "icon": "./assets/images/app-icon-android-legacy.png",
     "package": "com.moneyfly",
@@ -39,7 +37,7 @@
         "image": "./assets/images/app-icon-android-adaptive-foreground.png",
         "imageWidth": 300,
         "resizeMode": "contain",
-        "backgroundColor": "#191015"
+        "backgroundColor": "#191b19"
       }
     ],
     [
@@ -55,13 +53,5 @@
   ],
   "experiments": {
     "tsconfigPaths": true
-  },
-  "extra": {
-    "ignite": {
-      "version": "UNKNOWN"
-    },
-    "eas": {
-      "projectId": "37998cb4-00a6-4aa6-8d13-2f661c294993"
-    }
   }
 }

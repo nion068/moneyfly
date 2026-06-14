@@ -46,7 +46,6 @@ type IconProps = Omit<ViewProps, "style"> & BaseIconProps
 /**
  * A component to render a registered icon.
  * It is wrapped in a <TouchableOpacity />
- * @see [Documentation and Examples]{@link https://docs.infinite.red/ignite-cli/boilerplate/app/components/Icon/}
  * @param {PressableIconProps} props - The props for the `PressableIcon` component.
  * @returns {JSX.Element} The rendered `PressableIcon` component.
  */
@@ -79,7 +78,6 @@ export function PressableIcon(props: PressableIconProps) {
 /**
  * A component to render a registered icon.
  * It is wrapped in a <View />, use `PressableIcon` if you want to react to input
- * @see [Documentation and Examples]{@link https://docs.infinite.red/ignite-cli/boilerplate/app/components/Icon/}
  * @param {IconProps} props - The props for the `Icon` component.
  * @returns {JSX.Element} The rendered `Icon` component.
  */
@@ -115,21 +113,11 @@ export const iconRegistry = {
   caretLeft: require("@assets/icons/caretLeft.png"),
   caretRight: require("@assets/icons/caretRight.png"),
   check: require("@assets/icons/check.png"),
-  clap: require("@assets/icons/demo/clap.png"), // @demo remove-current-line
-  community: require("@assets/icons/demo/community.png"), // @demo remove-current-line
-  components: require("@assets/icons/demo/components.png"), // @demo remove-current-line
-  debug: require("@assets/icons/demo/debug.png"), // @demo remove-current-line
-  github: require("@assets/icons/demo/github.png"), // @demo remove-current-line
-  heart: require("@assets/icons/demo/heart.png"), // @demo remove-current-line
   hidden: require("@assets/icons/hidden.png"),
-  ladybug: require("@assets/icons/ladybug.png"),
   lock: require("@assets/icons/lock.png"),
   menu: require("@assets/icons/menu.png"),
   more: require("@assets/icons/more.png"),
-  pin: require("@assets/icons/demo/pin.png"), // @demo remove-current-line
-  podcast: require("@assets/icons/demo/podcast.png"), // @demo remove-current-line
   settings: require("@assets/icons/settings.png"),
-  slack: require("@assets/icons/demo/slack.png"), // @demo remove-current-line
   view: require("@assets/icons/view.png"),
   x: require("@assets/icons/x.png"),
 }

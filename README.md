@@ -1,77 +1,117 @@
-# Welcome to your new ignited app!
+# Moneyfly
 
-> The latest and greatest boilerplate for Infinite Red opinions
+Moneyfly is an early-stage, open-source Expo client for
+[Firefly III](https://www.firefly-iii.org/). It provides transaction entry, account and
+classification management, analytics, local biometric locking, and an optional Gemini-powered
+transaction drafting assistant.
 
-This is the boilerplate that [Infinite Red](https://infinite.red) uses as a way to test bleeding-edge changes to our React Native stack.
+Moneyfly is unofficial and is not affiliated with Firefly III, Google, Expo, or Infinite Red.
 
-- [Quick start documentation](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/Boilerplate.md)
-- [Full documentation](https://github.com/infinitered/ignite/blob/master/docs/README.md)
+## Project Status
 
-## Getting Started
+Moneyfly is under active development. Back up your Firefly III data and review proposed
+transactions before confirming them. The application is not financial advice and has not received
+an independent security audit.
+
+Current targets:
+
+- Android
+- iOS
+- Web, with reduced secret persistence guarantees
+
+## Requirements
+
+- Node.js 20 or newer
+- pnpm
+- A reachable self-hosted Firefly III server and personal access token
+- Android Studio, Xcode, or a compatible physical device for native development
+
+## Development
 
 ```bash
 pnpm install
+pnpm run compile
+pnpm run lint:check
+pnpm test
+```
+
+Create and install a development build:
+
+```bash
+pnpm run android
+# or
+pnpm run ios
+```
+
+Then start the Expo/Metro development server:
+
+```bash
 pnpm run start
 ```
 
-To make things work on your local simulator, or on your phone, you need first to [run `eas build`](https://github.com/infinitered/ignite/blob/master/docs/expo/EAS.md). We have many shortcuts on `package.json` to make it easier:
+For Android devices that need local port forwarding:
 
 ```bash
-pnpm run build:ios:sim # build for ios simulator
-pnpm run build:ios:device # build for ios device
-pnpm run build:ios:prod # build for ios device
+pnpm run adb
 ```
 
-### `./assets`
+Reactotron remains available in development builds. Start the Reactotron desktop application
+before launching Moneyfly to inspect logs, networking, MMKV state, and navigation commands.
 
-This directory is designed to organize and store various assets, making it easy for you to manage and use them in your application. The assets are further categorized into subdirectories, including `icons` and `images`:
+Web development uses:
 
-```tree
-assets
-├── icons
-└── images
+```bash
+pnpm run web
 ```
 
-**icons**
-This is where your icon assets will live. These icons can be used for buttons, navigation elements, or any other UI components. The recommended format for icons is PNG, but other formats can be used as well.
+The app icon source is `assets/brand/moneyfly-cash-icon.svg`. After editing it, regenerate every
+native and web PNG used by Expo:
 
-Ignite comes with a built-in `Icon` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/boilerplate/app/components/Icon.md).
-
-**images**
-This is where your images will live, such as background images, logos, or any other graphics. You can use various formats such as PNG, JPEG, or GIF for your images.
-
-Another valuable built-in component within Ignite is the `AutoImage` component. You can find detailed usage instructions in the [docs](https://github.com/infinitered/ignite/blob/master/docs/Components-AutoImage.md).
-
-How to use your `icon` or `image` assets:
-
-```typescript
-import { Image } from 'react-native';
-
-const MyComponent = () => {
-  return (
-    <Image source={require('assets/images/my_image.png')} />
-  );
-};
+```bash
+pnpm run generate:icons
 ```
 
-## Running Maestro end-to-end tests
+## Configuration
 
-Follow our [Maestro Setup](https://ignitecookbook.com/docs/recipes/MaestroSetup) recipe.
+The default application identifier is `com.moneyfly`. Forks should set their own identifier:
 
-## Next Steps
+```bash
+APP_IDENTIFIER=org.example.moneyfly pnpm run android
+```
 
-### Ignite Cookbook
+Build variants append `.dev` or `.preview` to that identifier. EAS builds can be connected to a
+project without committing the maintainer's project ID:
 
-[Ignite Cookbook](https://ignitecookbook.com/) is an easy way for developers to browse and share code snippets (or “recipes”) that actually work.
+```bash
+EAS_PROJECT_ID=your-project-id pnpm run build:android:preview
+```
 
-### Upgrade Ignite boilerplate
+Do not commit API keys, Firefly tokens, signing credentials, `.env` files containing secrets, or
+generated native credentials.
 
-Read our [Upgrade Guide](https://ignitecookbook.com/docs/recipes/UpdatingIgnite) to learn how to upgrade your Ignite project.
+## Privacy And Security
 
-## Community
+- Firefly requests go directly from the device to the server configured by the user.
+- The Firefly URL and token are stored locally using MMKV. Use Moneyfly only on a trusted device.
+- Gemini is optional and uses a user-provided API key. Native builds store that key with Expo
+  SecureStore; web builds keep it only in memory.
+- Money Agent sends recent chat messages plus Firefly account, category, budget, tag, and currency
+  names/IDs to Gemini. It does not intentionally send balances, the Firefly token, server URL, or
+  full transaction history.
+- Every AI-generated transaction requires explicit confirmation before it is written to Firefly.
 
-⭐️ Help us out by [starring on GitHub](https://github.com/infinitered/ignite), filing bug reports in [issues](https://github.com/infinitered/ignite/issues) or [ask questions](https://github.com/infinitered/ignite/discussions).
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
-💬 Join us on [Slack](https://join.slack.com/t/infiniteredcommunity/shared_invite/zt-1f137np4h-zPTq_CbaRFUOR_glUFs2UA) to discuss.
+## Contributing
 
-📰 Make our Editor-in-chief happy by [reading the React Native Newsletter](https://reactnativenewsletter.com/).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests should pass:
+
+```bash
+pnpm run compile
+pnpm run lint:check
+pnpm test --runInBand
+```
+
+## License
+
+Moneyfly is licensed under the [MIT License](LICENSE). See [NOTICE](NOTICE) for attribution.

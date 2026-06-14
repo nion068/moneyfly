@@ -1,0 +1,20 @@
+<svg viewBox="0 0 100 100" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Moneyfly Cash Icon</title>
+  <desc>A pair of green cash bills with a dollar sign</desc>
+
+  <rect x="12" y="22" width="76" height="46" rx="6" fill="#2e7a57"/>
+  <rect x="8" y="18" width="76" height="46" rx="6" fill="#3d9a6e"/>
+  <rect x="14" y="24" width="64" height="34" rx="3" fill="none" stroke="#5ab88a" stroke-width="1.5"/>
+  <circle cx="46" cy="41" r="10" fill="none" stroke="#5ab88a" stroke-width="1.5"/>
+  <text
+    x="46"
+    y="46"
+    text-anchor="middle"
+    font-family="system-ui, sans-serif"
+    font-size="13"
+    font-weight="600"
+    fill="#ffffff"
+  >$</text>
+  <circle cx="22" cy="41" r="4" fill="#2e7a57"/>
+  <circle cx="70" cy="41" r="4" fill="#2e7a57"/>
+</svg>
