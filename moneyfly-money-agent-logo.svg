@@ -1,0 +1,22 @@
+<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>MoneyFly Logo</title>
+  <desc>MoneyFly finance AI agent logo — cash bill inside a chat speech bubble</desc>
+
+  <!-- Bubble -->
+  <path d="M 0 22 Q 0 0 22 0 L 178 0 Q 200 0 200 22 L 200 148 Q 200 170 178 170 L 120 170 L 100 202 L 80 170 L 22 170 Q 0 170 0 148 Z" fill="#3d9a6e"/>
+
+  <!-- Bill body -->
+  <rect x="28" y="54" width="144" height="68" rx="10" fill="#2e7a57"/>
+
+  <!-- Bill top highlight strip -->
+  <rect x="28" y="54" width="144" height="20" rx="10" fill="#348a60"/>
+
+  <!-- Dollar sign -->
+  <text x="100" y="104" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="700" fill="#ffffff">$</text>
+
+  <!-- Typing dots -->
+  <circle cx="56" cy="148" r="6" fill="#ffffff" opacity="0.35"/>
+  <circle cx="76" cy="148" r="6" fill="#ffffff" opacity="0.65"/>
+  <circle cx="96" cy="148" r="6" fill="#ffffff"/>
+
+</svg>

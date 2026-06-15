@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { NavigationContainer } from "@react-navigation/native"
 import { createNativeStackNavigator } from "@react-navigation/native-stack"
 
+import { MoneyAgentLogo } from "@/components/MoneyAgentLogo"
 import { Text } from "@/components/Text"
 import Config from "@/config"
 import { AccountsScreen } from "@/screens/AccountsScreen"
@@ -26,7 +27,7 @@ const Tabs = createBottomTabNavigator<MainTabParamList>()
 type TabIconProps = {
   focused: boolean
   label: string
-  glyph: string
+  glyph?: string
   isPrimary?: boolean
 }
 
@@ -35,7 +36,11 @@ function TabIcon({ focused, label, glyph, isPrimary }: TabIconProps) {
 
   return (
     <View style={themed([$tabIcon, isPrimary && $primaryTabIcon, focused && $activeTabIcon])}>
-      <Text text={glyph} style={themed([$tabGlyph, focused && $activeTabText])} />
+      {isPrimary ? (
+        <MoneyAgentLogo width={38} height={42} opacity={focused ? 1 : 0.72} />
+      ) : (
+        <Text text={glyph} style={themed([$tabGlyph, focused && $activeTabText])} />
+      )}
       {!isPrimary && <Text text={label} style={themed([$tabLabel, focused && $activeTabText])} />}
     </View>
   )
@@ -79,7 +84,7 @@ function MainTabs() {
         name="AiAssistant"
         component={AiAssistantScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="AI" glyph="✦" isPrimary />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="AI" isPrimary />,
         }}
       />
       <Tabs.Screen

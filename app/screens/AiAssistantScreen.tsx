@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { Button } from "@/components/Button"
 import { FinanceCard } from "@/components/firefly/FinancePrimitives"
 import { SelectionItem, SelectionSheet } from "@/components/firefly/SelectionSheet"
+import { MoneyAgentLogo } from "@/components/MoneyAgentLogo"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
@@ -135,7 +136,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
         <View style={themed($header)}>
           <View style={themed($titleBlock)}>
             <View style={themed($avatar)}>
-              <MaterialCommunityIcons name="creation" size={24} color={colors.palette.surfaceDim} />
+              <MoneyAgentLogo width={24} height={27} />
             </View>
             <View style={themed($titleCopy)}>
               <Text text="Money Agent" numberOfLines={1} style={themed($title)} />
@@ -276,9 +277,9 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
             containerStyle={themed($composerField)}
             inputWrapperStyle={themed($composerInput)}
             style={themed($composerText)}
-            LeftAccessory={() => (
-              <View style={themed($composerIcon)}>
-                <MaterialCommunityIcons name="creation" size={20} color={colors.tint} />
+            LeftAccessory={({ style }) => (
+              <View style={[style, themed($composerIcon)]}>
+                <MoneyAgentLogo width={18} height={20} />
               </View>
             )}
             RightAccessory={() => (
@@ -431,7 +432,7 @@ function MessageBubble({
       <View style={themed([$bubbleRow, isUser && $bubbleRowRight])}>
         {!isUser && (
           <View style={themed($bubbleAvatar)}>
-            <MaterialCommunityIcons name="creation" size={17} color={colors.palette.surfaceDim} />
+            <MoneyAgentLogo width={17} height={19} />
           </View>
         )}
         {isUser && canResend ? (
@@ -1110,8 +1111,10 @@ const $titleBlock: ThemedStyle<ViewStyle> = ({ spacing }) => ({
 
 const $avatar: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
-  backgroundColor: colors.palette.primary500,
-  borderRadius: 20,
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
+  borderRadius: 14,
+  borderWidth: 1,
   height: 40,
   justifyContent: "center",
   width: 40,
@@ -1261,8 +1264,10 @@ const $resendButtonDisabled: ThemedStyle<ViewStyle> = () => ({
 
 const $bubbleAvatar: ThemedStyle<ViewStyle> = ({ colors }) => ({
   alignItems: "center",
-  backgroundColor: colors.palette.primary500,
-  borderRadius: 18,
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
+  borderRadius: 12,
+  borderWidth: 1,
   height: 36,
   justifyContent: "center",
   width: 36,
@@ -1352,8 +1357,9 @@ const $composerText: ThemedStyle<TextStyle> = () => ({
 
 const $composerIcon: ThemedStyle<ViewStyle> = () => ({
   alignItems: "center",
+  alignSelf: "center",
   justifyContent: "center",
-  paddingLeft: 16,
+  width: 28,
 })
 
 const $sendIconButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
