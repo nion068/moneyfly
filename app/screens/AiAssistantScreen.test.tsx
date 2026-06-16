@@ -213,18 +213,28 @@ describe("AiAssistantScreen", () => {
     fireEvent.press(screen.getByLabelText("Clear chat"))
 
     expect(screen.getByText("Clear chat?")).toBeTruthy()
-    expect(screen.getByText("Keep drafts")).toBeTruthy()
-    expect(screen.getByText("Discard and clear")).toBeTruthy()
+    expect(screen.getByText("There are unresolved drafts. Clearing will discard them and clear the chat history.")).toBeTruthy()
+    expect(screen.getByText("Cancel")).toBeTruthy()
+    expect(screen.getByLabelText("Confirm clear chat")).toBeTruthy()
+    expect(screen.queryByText("Keep drafts")).toBeNull()
 
-    fireEvent.press(screen.getByText("Keep drafts"))
-    expect(mockMoneyAgentValue.clearConversation).toHaveBeenCalledWith(false)
+    fireEvent.press(screen.getByLabelText("Confirm clear chat"))
+    expect(mockMoneyAgentValue.clearConversation).toHaveBeenCalledWith(true)
     expect(screen.queryByText("Clear chat?")).toBeNull()
   })
 
-  it("clears immediately when there are no unresolved drafts", () => {
+  it("shows a generic confirmation modal when clearing chat with no unresolved drafts", () => {
     const screen = renderScreen()
 
     fireEvent.press(screen.getByLabelText("Clear chat"))
+
+    expect(screen.getByText("Clear chat?")).toBeTruthy()
+    expect(screen.getByText("This will clear the current chat history.")).toBeTruthy()
+    expect(screen.getByText("Cancel")).toBeTruthy()
+    expect(screen.getByText("Clear chat")).toBeTruthy()
+    expect(mockMoneyAgentValue.clearConversation).not.toHaveBeenCalled()
+
+    fireEvent.press(screen.getByText("Clear chat"))
 
     expect(mockMoneyAgentValue.clearConversation).toHaveBeenCalledWith(true)
     expect(screen.queryByText("Clear chat?")).toBeNull()
