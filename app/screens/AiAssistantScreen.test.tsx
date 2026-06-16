@@ -78,6 +78,12 @@ const navigation = {
 
 function renderScreen() {
   return render(
+    renderScreenTree(),
+  )
+}
+
+function renderScreenTree() {
+  return (
     <SafeAreaProvider
       initialMetrics={{
         frame: { x: 0, y: 0, width: 375, height: 812 },
@@ -87,7 +93,7 @@ function renderScreen() {
       <ThemeProvider initialContext="dark">
         <AiAssistantScreen navigation={navigation} route={{} as never} />
       </ThemeProvider>
-    </SafeAreaProvider>,
+    </SafeAreaProvider>
   )
 }
 
@@ -145,6 +151,43 @@ describe("AiAssistantScreen", () => {
     expect(getByText("Shopping item")).toBeTruthy()
     expect(getByText("Describe a transaction and I will prepare a draft.")).toBeTruthy()
     expect(getByTestId("money-agent-conversation")).toHaveStyle({ flex: 1 })
+  })
+
+  it("prefills the composer when a quick prompt is tapped", () => {
+    const prompt = "Paid 450 taka for lunch at KFC from bKash today"
+    mockMoneyAgentValue.setInput.mockImplementation((value: string) => {
+      mockMoneyAgentValue.input = value
+    })
+
+    const screen = renderScreen()
+
+    fireEvent.press(screen.getByText("Log a meal"))
+
+    expect(mockMoneyAgentValue.setInput).toHaveBeenCalledWith(prompt)
+    expect(mockMoneyAgentValue.sendMessage).not.toHaveBeenCalled()
+
+    screen.rerender(renderScreenTree())
+
+    expect(screen.getByDisplayValue(prompt)).toBeTruthy()
+  })
+
+  it("hides the quick prompts after a user message exists", () => {
+    mockMoneyAgentValue.items.push({
+      id: "user-item-1",
+      kind: "message",
+      message: {
+        id: "user-message-1",
+        role: "user",
+        text: "Paid 450 for lunch",
+        createdAt: "2026-06-07T12:01:00.000Z",
+      },
+    })
+
+    const screen = renderScreen()
+
+    expect(screen.queryByText("Log a meal")).toBeNull()
+    expect(screen.queryByText("Add transport")).toBeNull()
+    expect(screen.queryByText("Shopping item")).toBeNull()
   })
 
   it("resends only the latest user message", () => {

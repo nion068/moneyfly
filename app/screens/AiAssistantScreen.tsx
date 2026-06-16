@@ -80,7 +80,6 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
     input,
     setInput,
     sendMessage,
-    sendQuickPrompt,
     clearConversation,
     isSending,
     error,
@@ -108,6 +107,7 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
     }
     return undefined
   }, [items])
+  const shouldShowQuickPrompts = latestUserMessageId == null
 
   const onClearChat = () => {
     setIsClearDialogVisible(true)
@@ -183,43 +183,6 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            horizontal
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={themed($quickPrompts)}
-          >
-            {[
-              {
-                label: "Log a meal",
-                icon: "silverware-fork-knife" as const,
-                prompt: "Paid 450 taka for lunch at KFC from bKash today",
-              },
-              {
-                label: "Add transport",
-                icon: "car-outline" as const,
-                prompt: "Paid 120 taka for Pathao from bKash today",
-              },
-              {
-                label: "Shopping item",
-                icon: "shopping-outline" as const,
-                prompt: "Bought a shopping item today",
-              },
-            ].map((item) => (
-              <Pressable
-                key={item.label}
-                accessibilityRole="button"
-                onPress={() =>
-                  isConfigured ? sendQuickPrompt(item.prompt) : openFireflySettings()
-                }
-                style={themed($promptChip)}
-              >
-                <MaterialCommunityIcons name={item.icon} size={16} color={colors.textDim} />
-                <Text text={item.label} numberOfLines={1} style={themed($promptText)} />
-              </Pressable>
-            ))}
-          </ScrollView>
-
           <View style={themed($dayDivider)}>
             <View style={themed($dividerLine)} />
             <Text text="Today" style={themed($dayLabel)} />
@@ -261,6 +224,45 @@ export const AiAssistantScreen: FC<AiAssistantScreenProps> = ({ navigation }) =>
 
           {error ? <Text text={error} style={themed($error)} /> : null}
         </ScrollView>
+
+        {shouldShowQuickPrompts ? (
+          <View style={themed($quickPromptTray)}>
+            <ScrollView
+              horizontal
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={themed($quickPrompts)}
+            >
+              {[
+                {
+                  label: "Log a meal",
+                  icon: "silverware-fork-knife" as const,
+                  prompt: "Paid 450 taka for lunch at KFC from bKash today",
+                },
+                {
+                  label: "Add transport",
+                  icon: "car-outline" as const,
+                  prompt: "Paid 120 taka for Pathao from bKash today",
+                },
+                {
+                  label: "Shopping item",
+                  icon: "shopping-outline" as const,
+                  prompt: "Bought a shopping item today",
+                },
+              ].map((item) => (
+                <Pressable
+                  key={item.label}
+                  accessibilityRole="button"
+                  onPress={() => setInput(item.prompt)}
+                  style={themed($promptChip)}
+                >
+                  <MaterialCommunityIcons name={item.icon} size={16} color={colors.textDim} />
+                  <Text text={item.label} numberOfLines={1} style={themed($promptText)} />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         <View style={themed($composerBar)}>
           <TextField
@@ -1198,14 +1200,21 @@ const $chat: ThemedStyle<ViewStyle> = () => ({
 })
 
 const $chatContent: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  gap: spacing.lg,
+  gap: spacing.md,
   padding: spacing.lg,
-  paddingBottom: spacing.xl,
+  paddingBottom: spacing.lg,
+})
+
+const $quickPromptTray: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  backgroundColor: colors.palette.surface,
+  paddingHorizontal: spacing.lg,
+  paddingTop: spacing.xs,
+  paddingBottom: spacing.sm,
+  marginTop: spacing.xs,
 })
 
 const $quickPrompts: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.sm,
-  paddingRight: spacing.lg,
 })
 
 const $promptChip: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
@@ -1217,8 +1226,8 @@ const $promptChip: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   flexDirection: "row",
   gap: spacing.xs,
   justifyContent: "center",
-  paddingHorizontal: spacing.md,
-  paddingVertical: 10,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: 8,
 })
 
 const $promptText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
