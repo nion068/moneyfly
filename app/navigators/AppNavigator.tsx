@@ -37,7 +37,9 @@ function TabIcon({ focused, label, glyph, isPrimary }: TabIconProps) {
   return (
     <View style={themed([$tabIcon, isPrimary && $primaryTabIcon, focused && $activeTabIcon])}>
       {isPrimary ? (
-        <MoneyAgentLogo width={38} height={42} opacity={focused ? 1 : 0.72} />
+        <View style={$primaryTabLogo}>
+          <MoneyAgentLogo width={38} height={42} opacity={focused ? 1 : 0.72} />
+        </View>
       ) : (
         <Text text={glyph} style={themed([$tabGlyph, focused && $activeTabText])} />
       )}
@@ -169,6 +171,10 @@ const $primaryTabIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
   backgroundColor: colors.palette.surfaceContainerHigh,
   marginTop: -18,
 })
+
+const $primaryTabLogo: ViewStyle = {
+  transform: [{ translateY: 3 }],
+}
 
 const $activeTabIcon: ThemedStyle<ViewStyle> = () => ({})
 
