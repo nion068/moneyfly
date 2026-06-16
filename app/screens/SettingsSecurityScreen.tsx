@@ -10,13 +10,14 @@ import {
   SettingsRow,
 } from "@/components/settings/SettingsPrimitives"
 import { Text } from "@/components/Text"
-import { Switch } from "@/components/Toggle/Switch"
-import { BIOMETRIC_AUTHENTICATION_ENABLED, useSecurity } from "@/context/SecurityContext"
+import { Switch, SwitchToggleProps } from "@/components/Toggle/Switch"
+import { useSecurity } from "@/context/SecurityContext"
 import type { SettingsStackScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
 
 type Props = SettingsStackScreenProps<"SettingsSecurity">
+type SwitchDetailStyle = NonNullable<SwitchToggleProps["inputDetailStyle"]>
 
 export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
   const {
@@ -31,15 +32,15 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
     error,
     setBiometricEnabled,
   } = useSecurity()
-  const available = BIOMETRIC_AUTHENTICATION_ENABLED && biometricSupported && biometricEnrolled
-  const status = !BIOMETRIC_AUTHENTICATION_ENABLED
-    ? "Temporarily unavailable"
-    : isChecking
-      ? "Checking device"
-      : biometricEnabled
-        ? "Biometric enabled"
-        : available
-          ? "Biometric available"
+  const available = biometricSupported && biometricEnrolled
+  const status = isChecking
+    ? "Checking device"
+    : biometricEnabled
+      ? "Biometric enabled"
+      : available
+        ? "Biometric available"
+        : biometricSupported
+          ? "Biometric not enrolled"
           : "Biometric unavailable"
 
   return (
@@ -56,11 +57,7 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
         </View>
         <Text text="Biometric Authentication" style={themed($title)} />
         <Text
-          text={
-            BIOMETRIC_AUTHENTICATION_ENABLED
-              ? "Use Face ID or fingerprint to unlock Moneyfly after it leaves the foreground."
-              : "Biometric unlock is temporarily disabled while the authentication flow is being fixed."
-          }
+          text="Use Face ID, fingerprint, or your device passcode to unlock Moneyfly after it leaves the foreground."
           style={themed($body)}
         />
       </View>
@@ -70,11 +67,11 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
           first
           title="Biometric Unlock"
           subtitle={
-            !BIOMETRIC_AUTHENTICATION_ENABLED
-              ? "Temporarily unavailable"
-              : available
-                ? "Face ID / Fingerprint"
-                : "Requires supported hardware and an enrolled biometric"
+            available
+              ? "Face ID / Fingerprint with device passcode fallback"
+              : biometricSupported
+                ? "Enroll biometrics or device authentication in system settings"
+                : "Requires supported hardware"
           }
           icon="fingerprint"
           tone="blue"
@@ -82,8 +79,11 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
           trailing={
             <Switch
               value={biometricEnabled}
-              disabled={!BIOMETRIC_AUTHENTICATION_ENABLED || isChecking || !available}
+              disabled={isChecking || !available}
               onValueChange={(value) => void setBiometricEnabled(value)}
+              inputOuterStyle={themed($switchOuter)}
+              inputInnerStyle={themed($switchInner)}
+              inputDetailStyle={themed($switchKnob)}
             />
           }
         />
@@ -94,7 +94,11 @@ export const SettingsSecurityScreen: FC<Props> = ({ navigation }) => {
       <SettingsCard style={themed($notice)}>
         <SettingsIcon name="information-outline" />
         <Text
-          text="Biometric locking is currently disabled. Moneyfly will not request biometric authentication."
+          text={
+            biometricEnabled
+              ? "Moneyfly will lock after it leaves the foreground and ask for device authentication when reopened."
+              : "Moneyfly will not request biometric authentication until you enable biometric unlock."
+          }
           style={themed($noticeText)}
         />
       </SettingsCard>
@@ -146,4 +150,19 @@ const $noticeText: ThemedStyle<TextStyle> = ({ colors }) => ({
   flex: 1,
   fontSize: 13,
   lineHeight: 19,
+})
+const $switchOuter: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.palette.surfaceContainerHighest,
+  borderColor: colors.palette.stroke,
+  borderWidth: 1,
+})
+const $switchInner: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.tint,
+})
+const $switchKnob: ThemedStyle<SwitchDetailStyle> = ({ colors }) => ({
+  backgroundColor: colors.background,
+  shadowColor: colors.palette.overlay80,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.28,
+  shadowRadius: 4,
 })

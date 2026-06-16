@@ -11,6 +11,7 @@ import {
 import { Text } from "@/components/Text"
 import { useFirefly } from "@/context/FireflyContext"
 import { useMoneyAgent } from "@/context/MoneyAgentContext"
+import { useSecurity } from "@/context/SecurityContext"
 import type { SettingsStackScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -39,6 +40,7 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
     isRefreshing,
   } = useFirefly()
   const { hasApiKey, model } = useMoneyAgent()
+  const { biometricEnabled, biometricSupported, biometricEnrolled, isChecking } = useSecurity()
   const connectionError = accounts.error ?? transactions.error
   const user = currentUser.data?.attributes
   const identity = user?.name || user?.email || (isConfigured ? "Firefly user" : "Moneyfly")
@@ -58,6 +60,14 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
   const version = Application.nativeApplicationVersion ?? "dev"
   const build = Application.nativeBuildVersion
   const openFireflySettings = () => navigation.navigate("SettingsFirefly")
+  const biometricAvailable = biometricSupported && biometricEnrolled
+  const securitySubtitle = isChecking
+    ? "Checking device security"
+    : biometricEnabled
+      ? "Biometric unlock enabled"
+      : biometricAvailable
+        ? "Biometric unlock available"
+        : "Biometric unlock unavailable"
 
   return (
     <Screen preset="scroll" safeAreaEdges={["top"]} contentContainerStyle={themed($container)}>
@@ -111,7 +121,8 @@ export const SettingsScreen: FC<SettingsScreenProps> = ({ navigation }) => {
         />
         <SettingsSummaryCard
           title="Security"
-          subtitle="Biometric unlock temporarily unavailable"
+          subtitle={securitySubtitle}
+          status={biometricEnabled}
           icon="fingerprint"
           tone="blue"
           onPress={() => navigation.navigate("SettingsSecurity")}

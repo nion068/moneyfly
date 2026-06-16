@@ -13,14 +13,31 @@ export function SecurityGate({ children }: PropsWithChildren) {
     themed,
     theme: { colors },
   } = useAppTheme()
-  const { biometricEnabled, isLocked, unlock, error } = useSecurity()
+  const {
+    biometricEnabled,
+    biometricEnrolled,
+    biometricSupported,
+    isAuthenticating,
+    isChecking,
+    isLocked,
+    unlock,
+    error,
+  } = useSecurity()
   const attempted = useRef(false)
+  const canAuthenticate = biometricSupported && biometricEnrolled
 
   useEffect(() => {
-    if (!biometricEnabled || !isLocked || attempted.current) return
+    if (!biometricEnabled || !isLocked || isChecking || !canAuthenticate || attempted.current) {
+      return
+    }
     attempted.current = true
-    void unlock()
-  }, [biometricEnabled, isLocked, unlock])
+
+    const timeout = setTimeout(() => {
+      void unlock()
+    }, 650)
+
+    return () => clearTimeout(timeout)
+  }, [biometricEnabled, canAuthenticate, isChecking, isLocked, unlock])
 
   useEffect(() => {
     if (!isLocked) attempted.current = false
@@ -34,9 +51,23 @@ export function SecurityGate({ children }: PropsWithChildren) {
         <MaterialCommunityIcons name="fingerprint" color={colors.palette.secondary300} size={68} />
       </View>
       <Text text="Moneyfly is locked" style={themed($title)} />
-      <Text text="Authenticate with your device biometrics to continue." style={themed($body)} />
+      <Text
+        text={
+          isChecking
+            ? "Checking device authentication..."
+            : "Use Face ID, fingerprint, or your device passcode to continue."
+        }
+        style={themed($body)}
+      />
       {error ? <Text text={error} style={themed($error)} /> : null}
-      <Button text="Unlock" preset="filled" onPress={() => void unlock()} style={themed($button)} />
+      <Button
+        text={isAuthenticating ? "Unlocking..." : "Unlock"}
+        disabled={isAuthenticating}
+        onPress={() => void unlock()}
+        style={themed($button)}
+        disabledStyle={themed($buttonDisabled)}
+        textStyle={themed($buttonText)}
+      />
     </View>
   )
 }
@@ -61,6 +92,9 @@ const $title: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.text,
   fontFamily: typography.primary.bold,
   fontSize: 30,
+  lineHeight: 38,
+  paddingBottom: 2,
+  textAlign: "center",
 })
 const $body: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,
@@ -72,4 +106,15 @@ const $error: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.error,
   textAlign: "center",
 })
-const $button: ThemedStyle<ViewStyle> = () => ({ minWidth: 180 })
+const $button: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  backgroundColor: colors.tint,
+  borderColor: colors.tint,
+  minWidth: 180,
+})
+const $buttonDisabled: ThemedStyle<ViewStyle> = () => ({
+  opacity: 0.72,
+})
+const $buttonText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.background,
+  fontFamily: typography.primary.bold,
+})
