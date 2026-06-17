@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 3.15.1"
+    "version": ">= 3.15.1",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -43,6 +44,8 @@
       "ios": { "simulator": false }
     },
     "production": {
+      "node": "22.13.0",
+      "pnpm": "11.5.0",
       "env": {
         "NODE_ENV": "production",
         "APP_VARIANT": "production"
