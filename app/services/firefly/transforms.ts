@@ -505,6 +505,17 @@ export function groupTransactionsByDate(transactions: FlatTransaction[]) {
   return grouped
 }
 
+export function filterTransactionsByCategoryNames(
+  transactions: FlatTransaction[],
+  categoryNames: string[],
+) {
+  if (categoryNames.length === 0) return transactions
+
+  return transactions.filter((transaction) =>
+    categoryNames.includes(transaction.categoryName ?? "Uncategorized"),
+  )
+}
+
 export type LocalTransactionFilters = {
   type: "all" | TransactionType
   search: string

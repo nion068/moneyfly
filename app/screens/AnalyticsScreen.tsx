@@ -7,6 +7,7 @@ import { Circle, Line, Path, Svg } from "react-native-svg"
 
 import { Chip, FinanceCard, MetricPill, ProgressBar } from "@/components/firefly/FinancePrimitives"
 import { LoadingIndicator } from "@/components/firefly/LoadingIndicator"
+import { SelectionItem, SelectionSheet } from "@/components/firefly/SelectionSheet"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { useFirefly, LoadState } from "@/context/FireflyContext"
@@ -18,6 +19,7 @@ import {
   AnalyticsTrendPoint,
   buildAnalyticsTrend,
   buildMonthlySummary,
+  filterTransactionsByCategoryNames,
   flattenFireflyTransactions,
   formatMoney,
   getAnalyticsBuckets,
@@ -59,6 +61,7 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     summariesByCurrency,
     selectedCurrency,
     setSelectedCurrency,
+    categories,
     isRefreshing,
     baseUrl,
     token,
@@ -75,11 +78,13 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     status: transactions.status,
   })
   const [showYears, setShowYears] = useState(false)
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null)
   const [categoryExpanded, setCategoryExpanded] = useState(true)
   const [accountExpanded, setAccountExpanded] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([])
   const scrollRef = useRef<any>(null)
   const categoryLayouts = useRef<Record<string, number>>({})
 
@@ -144,18 +149,40 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     () => getAnalyticsBuckets(analyticsMonth, period),
     [analyticsMonth, period],
   )
+  const analyticsCategoryItems = useMemo<SelectionItem[]>(() => {
+    const names = new Set<string>()
+
+    categories.data.forEach((category) => {
+      const name = category.attributes.name.trim()
+      if (name) names.add(name)
+    })
+    currencyTransactions.forEach((transaction) => {
+      const name = transaction.categoryName ?? "Uncategorized"
+      if (name.trim()) names.add(name)
+    })
+
+    return Array.from(names)
+      .sort((left, right) => left.localeCompare(right))
+      .map((name) => ({ id: name, title: name, icon: "shape-outline" }))
+  }, [categories.data, currencyTransactions])
+  const filteredTrendTransactions = useMemo(
+    () => filterTransactionsByCategoryNames(currencyTransactions, selectedCategoryNames),
+    [currencyTransactions, selectedCategoryNames],
+  )
+  const filteredPageTransactions = filteredTrendTransactions
   const activeBucket = analyticsBuckets[analyticsBuckets.length - 1]
-  const activeTransactions = currencyTransactions.filter((transaction) => {
+  const activeTransactions = filteredPageTransactions.filter((transaction) => {
     const date = transaction.date.slice(0, 10)
     return date >= activeBucket.start && date <= activeBucket.end
   })
-  const trendPoints = buildAnalyticsTrend(currencyTransactions, analyticsBuckets)
+  const trendPoints = buildAnalyticsTrend(filteredPageTransactions, analyticsBuckets)
   const summary = {
     ...buildMonthlySummary(activeTransactions),
     currencySymbol:
       activeTransactions[0]?.currencySymbol ??
       summariesByCurrency.find((currency) => currency.currencyCode === effectiveCurrency)
         ?.currencySymbol ??
+      filteredPageTransactions[0]?.currencySymbol ??
       currencyTransactions[0]?.currencySymbol ??
       "৳",
   }
@@ -179,8 +206,41 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
     rangeTransactions.status === "loading" && rangeTransactions.data.length > 0
 
   useEffect(() => {
-    setSelectedTrendPoint(null)
-  }, [analyticsMonth, chartMetric, period])
+    setSelectedTrendPoint((current) => (current === null ? current : null))
+  }, [analyticsMonth, chartMetric, period, selectedCategoryNames])
+
+  useEffect(() => {
+    if (selectedCategoryNames.length === 0) return
+
+    const availableNames = new Set(analyticsCategoryItems.map((item) => item.id))
+    setSelectedCategoryNames((current) =>
+      current.every((categoryName) => availableNames.has(categoryName))
+        ? current
+        : current.filter((categoryName) => availableNames.has(categoryName)),
+    )
+  }, [analyticsCategoryItems, selectedCategoryNames.length])
+
+  useEffect(() => {
+    if (!selectedCategory || categoryExpenses.some((category) => category.name === selectedCategory)) return
+    setSelectedCategory(null)
+  }, [categoryExpenses, selectedCategory])
+
+  useEffect(() => {
+    if (!expandedCategory || categoryExpenses.some((category) => category.name === expandedCategory)) return
+    setExpandedCategory(null)
+  }, [categoryExpenses, expandedCategory])
+
+  useEffect(() => {
+    if (!expandedAccount || accountExpenses.some((account) => account.name === expandedAccount)) return
+    setExpandedAccount(null)
+  }, [accountExpenses, expandedAccount])
+
+  const categoryFilterLabel =
+    selectedCategoryNames.length === 0
+      ? "All categories"
+      : selectedCategoryNames.length === 1
+        ? selectedCategoryNames[0]
+        : `${selectedCategoryNames.length} selected`
 
   const navigateHomeFiltered = (filterType: "category" | "account", name: string) => {
     navigation.navigate("Home", {
@@ -268,6 +328,30 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
           {rangeTransactions.status !== "loading" &&
             activeTransactions.length === 0 &&
             !isLoading && <Text text="No transactions for this period." style={themed($muted)} />}
+
+          <View style={themed($pageFilterRow)}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open analytics category filter"
+              onPress={() => setShowCategoryFilter(true)}
+              style={themed($pageFilterButton)}
+              testID="analytics-category-filter-button"
+            >
+              <MaterialCommunityIcons name="shape-outline" size={16} style={themed($pageFilterIcon)} />
+              <Text text={categoryFilterLabel} style={themed($pageFilterText)} numberOfLines={1} />
+              <MaterialCommunityIcons name="chevron-down" size={18} style={themed($dimIcon)} />
+            </Pressable>
+            {selectedCategoryNames.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear analytics category filter"
+                onPress={() => setSelectedCategoryNames([])}
+                style={themed($pageFilterClear)}
+              >
+                <Text text="Clear" style={themed($pageFilterClearText)} />
+              </Pressable>
+            )}
+          </View>
 
           {/* Metric cards */}
           <View style={themed($metricRow)}>
@@ -496,6 +580,15 @@ export const AnalyticsScreen: FC<AnalyticsScreenProps> = ({ navigation }) => {
         selectedMonth={analyticsMonth}
         setSelectedMonth={setAnalyticsMonth}
         now={now}
+      />
+      <SelectionSheet
+        visible={showCategoryFilter}
+        title="Categories"
+        items={analyticsCategoryItems}
+        selectedIds={selectedCategoryNames}
+        multiple
+        onSelect={setSelectedCategoryNames}
+        onClose={() => setShowCategoryFilter(false)}
       />
     </>
   )
@@ -990,6 +1083,52 @@ const $errorText: ThemedStyle<TextStyle> = ({ colors }) => ({
 const $metricRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   flexDirection: "row",
   gap: spacing.sm,
+})
+
+const $pageFilterRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  alignItems: "center",
+  flexDirection: "row",
+  gap: spacing.xs,
+})
+
+const $pageFilterButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainer,
+  borderColor: colors.palette.stroke,
+  borderRadius: 14,
+  borderWidth: 1,
+  flex: 1,
+  flexDirection: "row",
+  gap: spacing.xs,
+  minHeight: 44,
+  paddingHorizontal: spacing.sm,
+})
+
+const $pageFilterIcon: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.tint,
+})
+
+const $pageFilterText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.text,
+  flex: 1,
+  fontFamily: typography.primary.medium,
+  fontSize: 13,
+})
+
+const $pageFilterClear: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  alignItems: "center",
+  borderColor: colors.palette.stroke,
+  borderRadius: 12,
+  borderWidth: 1,
+  justifyContent: "center",
+  minHeight: 44,
+  paddingHorizontal: spacing.sm,
+})
+
+const $pageFilterClearText: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
+  color: colors.tint,
+  fontFamily: typography.primary.semiBold,
+  fontSize: 13,
 })
 
 const $trendHeader: ThemedStyle<ViewStyle> = () => ({

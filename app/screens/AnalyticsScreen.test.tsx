@@ -35,15 +35,20 @@ jest.mock("react-native-keyboard-controller", () => {
     return React.createElement("KeyboardAwareScrollView", props, children)
   })
   KeyboardAwareScrollView.displayName = "KeyboardAwareScrollView"
+  const KeyboardAvoidingView = ({ children, ...props }: any) =>
+    React.createElement("KeyboardAvoidingView", props, children)
 
   return {
     __esModule: true,
     KeyboardAwareScrollView,
+    KeyboardAvoidingView,
+    useKeyboardState: (selector: (state: { isVisible: boolean }) => boolean) =>
+      selector({ isVisible: false }),
   }
 })
 
 const mockNavigate = jest.fn()
-const baseTransaction = {
+const baseTransaction: any = {
   groupId: "g1",
   journalId: "j1",
   date: "2026-06-04T10:00:00+06:00",
@@ -59,8 +64,28 @@ const baseTransaction = {
   currencyCode: "BDT",
   currencySymbol: "৳",
 }
+const secondCategoryTransaction = {
+  ...baseTransaction,
+  groupId: "g2",
+  journalId: "j2",
+  amount: 300,
+  description: "Taxi",
+  destinationName: "Pathao",
+  categoryName: "Transport",
+}
+const incomeTransaction = {
+  ...baseTransaction,
+  groupId: "g3",
+  journalId: "j3",
+  amount: 1200,
+  description: "Salary",
+  type: "deposit" as const,
+  sourceName: "Employer",
+  destinationName: "bKash",
+  categoryName: "Salary",
+}
 
-const toFireflyTransactions = (flatTransactions: (typeof baseTransaction)[]) =>
+const toFireflyTransactions = (flatTransactions: any[]) =>
   flatTransactions.map((transaction) => ({
     id: transaction.groupId,
     attributes: {
@@ -121,7 +146,7 @@ const mockBaseContextValue = {
   isTestingConnection: false,
   isMonthLoading: false,
   accounts: { data: [], status: "idle" as const },
-  categories: { data: [], status: "idle" as const },
+  categories: { data: [] as any[], status: "idle" as const },
   budgets: { data: [], status: "idle" as const },
   tags: { data: [], status: "idle" as const },
   lastSyncedAt: undefined,
@@ -190,6 +215,11 @@ describe("AnalyticsScreen", () => {
     jest.clearAllMocks()
     mockBaseContextValue.selectedMonth = new Date(2026, 5, 1)
     mockBaseContextValue.transactions.data = [baseTransaction]
+    mockBaseContextValue.categories.data = [
+      { id: "category-food", attributes: { name: "Food & Dining" } },
+      { id: "category-transport", attributes: { name: "Transport" } },
+      { id: "category-salary", attributes: { name: "Salary" } },
+    ]
     mockBaseContextValue.selectedCurrency = "BDT"
     mockGetTransactions.mockResolvedValue({
       kind: "ok",
@@ -366,6 +396,97 @@ describe("AnalyticsScreen", () => {
     expect(selectedValue.getByText("৳ 450")).toBeTruthy()
   })
 
+  it("shows All categories by default for the analytics filter", () => {
+    const { getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    expect(getByText("All categories")).toBeTruthy()
+  })
+
+  it("filters the full analytics page to a single selected category", () => {
+    mockBaseContextValue.transactions.data = [baseTransaction, secondCategoryTransaction]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([baseTransaction, secondCategoryTransaction]),
+    })
+
+    const { getAllByText, getByLabelText, getByTestId, getByText, queryByText } =
+      renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+      )
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+    fireEvent.press(getByTestId("trend-point-5"))
+
+    expect(within(getByTestId("trend-selected-value")).getByText("৳ 300")).toBeTruthy()
+    expect(getAllByText("Transport").length).toBeGreaterThan(0)
+    expect(getAllByText("৳ 300").length).toBeGreaterThan(0)
+    expect(queryByText("Food & Dining")).toBeNull()
+  })
+
+  it("combines multiple selected categories across the full analytics page", () => {
+    mockBaseContextValue.transactions.data = [
+      baseTransaction,
+      secondCategoryTransaction,
+      incomeTransaction,
+    ]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([
+        baseTransaction,
+        secondCategoryTransaction,
+        incomeTransaction,
+      ]),
+    })
+
+    const { getAllByText, getByLabelText, getByTestId, getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Food & Dining"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+    fireEvent.press(getByTestId("trend-point-5"))
+
+    expect(within(getByTestId("trend-selected-value")).getByText("৳ 750")).toBeTruthy()
+    expect(getByText("2 selected")).toBeTruthy()
+    expect(getAllByText("৳ 750").length).toBeGreaterThan(0)
+  })
+
+  it("clears the analytics filter and restores the unfiltered full page", () => {
+    mockBaseContextValue.transactions.data = [
+      baseTransaction,
+      secondCategoryTransaction,
+      incomeTransaction,
+    ]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([
+        baseTransaction,
+        secondCategoryTransaction,
+        incomeTransaction,
+      ]),
+    })
+
+    const { getAllByText, getByLabelText, getByTestId, getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+    fireEvent.press(getByLabelText("Clear analytics category filter"))
+    fireEvent.press(getByTestId("trend-point-5"))
+
+    expect(within(getByTestId("trend-selected-value")).getByText("৳ 750")).toBeTruthy()
+    expect(getByText("All categories")).toBeTruthy()
+    expect(getAllByText("৳ 750").length).toBeGreaterThan(0)
+  })
+
   it("builds the chart from only the selected currency", () => {
     const usdTransaction = {
       ...baseTransaction,
@@ -387,6 +508,42 @@ describe("AnalyticsScreen", () => {
     fireEvent.press(getByTestId("trend-point-5"))
 
     expect(within(getByTestId("trend-selected-value")).getByText("৳ 450")).toBeTruthy()
+  })
+
+  it("composes currency filtering with full-page category filtering", () => {
+    const usdTransportTransaction = {
+      ...secondCategoryTransaction,
+      groupId: "usd-transport-group",
+      journalId: "usd-transport-journal",
+      amount: 900,
+      currencyCode: "USD",
+      currencySymbol: "$",
+    }
+    mockBaseContextValue.transactions.data = [
+      baseTransaction,
+      secondCategoryTransaction,
+      usdTransportTransaction,
+    ]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([
+        baseTransaction,
+        secondCategoryTransaction,
+        usdTransportTransaction,
+      ]),
+    })
+
+    const { getAllByText, getByLabelText, getByTestId, getByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+    fireEvent.press(getByTestId("trend-point-5"))
+
+    expect(within(getByTestId("trend-selected-value")).getByText("৳ 300")).toBeTruthy()
+    expect(getAllByText("৳ 300").length).toBeGreaterThan(0)
   })
 
   it("shows a neutral chart state when the selected metric has no activity", () => {
@@ -510,6 +667,69 @@ describe("AnalyticsScreen", () => {
 
     expect(getByText("No expenses for this period.")).toBeTruthy()
     expect(queryAllByTestId(/^breakdown-row-/)).toHaveLength(0)
+  })
+
+  it("updates summary pills and breakdown sections when the analytics filter is active", () => {
+    mockBaseContextValue.transactions.data = [baseTransaction, secondCategoryTransaction]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([baseTransaction, secondCategoryTransaction]),
+    })
+
+    const { getAllByText, getByLabelText, getByText, queryByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+
+    expect(getAllByText("৳ 300").length).toBeGreaterThan(0)
+    expect(queryByText("Food & Dining")).toBeNull()
+    expect(getAllByText("Transport").length).toBeGreaterThan(0)
+  })
+
+  it("shows an empty filtered state when no transactions match selected categories", async () => {
+    mockBaseContextValue.transactions.data = [baseTransaction]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([baseTransaction]),
+    })
+
+    const { getByLabelText, getByText, queryAllByTestId } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+
+    await waitFor(() => {
+      expect(getByText("No activity for these periods.")).toBeTruthy()
+      expect(getByText("No expenses for this period.")).toBeTruthy()
+      expect(queryAllByTestId(/^breakdown-row-/)).toHaveLength(0)
+    })
+  })
+
+  it("clears expanded category details when filtering removes that category", () => {
+    mockBaseContextValue.transactions.data = [baseTransaction, secondCategoryTransaction]
+    mockGetTransactions.mockResolvedValue({
+      kind: "ok",
+      data: toFireflyTransactions([baseTransaction, secondCategoryTransaction]),
+    })
+
+    const { getAllByText, getByLabelText, getByText, queryByText } = renderWithProviders(
+      <AnalyticsScreen navigation={navigationProp} route={{} as never} />,
+    )
+
+    fireEvent.press(getAllByText("Food & Dining")[1])
+    expect(getByText("KFC")).toBeTruthy()
+
+    fireEvent.press(getByLabelText("Open analytics category filter"))
+    fireEvent.press(getByLabelText("Transport"))
+    fireEvent.press(getByText("Done"))
+
+    expect(queryByText("KFC")).toBeNull()
   })
 
   it("pressing a breakdown bar selects it, expands details, and scrolls to the category", async () => {

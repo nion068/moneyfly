@@ -9,6 +9,7 @@ import {
   buildSummariesByCurrency,
   clampMonthToPresent,
   draftToStoreRequest,
+  filterTransactionsByCategoryNames,
   filterTransactions,
   findCashWalletName,
   flattenFireflyTransactions,
@@ -301,6 +302,24 @@ describe("Firefly transforms", () => {
         startDate: "2026-06-05",
       }),
     ).toEqual([])
+  })
+
+  it("filters analytics transactions by category names", () => {
+    const transactions = flattenFireflyTransactions(groupedTransactions)
+    transactions.push({
+      ...transactions[0],
+      groupId: "group-2",
+      journalId: "journal-3",
+      categoryName: undefined,
+    })
+
+    expect(filterTransactionsByCategoryNames(transactions, [])).toEqual(transactions)
+    expect(filterTransactionsByCategoryNames(transactions, ["Food & Dining"])).toEqual([
+      transactions[0],
+    ])
+    expect(filterTransactionsByCategoryNames(transactions, ["Uncategorized"])).toEqual([
+      transactions[2],
+    ])
   })
 
   it("maps categories to meaningful icons with type fallbacks", () => {
