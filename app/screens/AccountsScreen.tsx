@@ -38,13 +38,17 @@ const groupConfig: Record<
   AccountGroup,
   {
     title: string
-    icon: "bank-outline" | "cart-outline" | "trending-up" | "credit-card-outline"
+    icon:
+      | "bank-outline"
+      | "cart-outline"
+      | "trending-up"
+      | "credit-card-minus-outline"
   }
 > = {
   asset: { title: "Asset Accounts", icon: "bank-outline" },
   expense: { title: "Expense Accounts", icon: "cart-outline" },
   revenue: { title: "Revenue Accounts", icon: "trending-up" },
-  liability: { title: "Liabilities", icon: "credit-card-outline" },
+  liability: { title: "Liabilities", icon: "credit-card-minus-outline" },
 }
 
 export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
@@ -237,7 +241,15 @@ export const AccountsScreen: FC<AccountsScreenProps> = ({ navigation }) => {
               >
                 <SettingsIcon
                   name={config.icon}
-                  tone={group === "asset" ? "primary" : group === "revenue" ? "blue" : "neutral"}
+                  tone={
+                    group === "asset"
+                      ? "primary"
+                      : group === "revenue"
+                        ? "blue"
+                        : group === "expense"
+                          ? "danger"
+                          : "neutral"
+                  }
                   size={19}
                 />
                 <Text text={config.title} style={themed($groupTitle)} />

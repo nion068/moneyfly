@@ -1,4 +1,6 @@
+import { ComponentProps } from "react"
 import { TextStyle, View, ViewStyle } from "react-native"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { NavigationContainer } from "@react-navigation/native"
 import { createNativeStackNavigator } from "@react-navigation/native-stack"
@@ -27,12 +29,15 @@ const Tabs = createBottomTabNavigator<MainTabParamList>()
 type TabIconProps = {
   focused: boolean
   label: string
-  glyph?: string
+  icon?: ComponentProps<typeof MaterialCommunityIcons>["name"]
   isPrimary?: boolean
 }
 
-function TabIcon({ focused, label, glyph, isPrimary }: TabIconProps) {
-  const { themed } = useAppTheme()
+function TabIcon({ focused, label, icon, isPrimary }: TabIconProps) {
+  const {
+    themed,
+    theme: { colors },
+  } = useAppTheme()
 
   return (
     <View style={themed([$tabIcon, isPrimary && $primaryTabIcon, focused && $activeTabIcon])}>
@@ -41,7 +46,13 @@ function TabIcon({ focused, label, glyph, isPrimary }: TabIconProps) {
           <MoneyAgentLogo width={38} height={42} opacity={focused ? 1 : 0.72} />
         </View>
       ) : (
-        <Text text={glyph} style={themed([$tabGlyph, focused && $activeTabText])} />
+        <View style={themed([$tabBadge, focused && $activeTabBadge])}>
+          <MaterialCommunityIcons
+            name={icon}
+            color={focused ? colors.tint : colors.textDim}
+            size={22}
+          />
+        </View>
       )}
       {!isPrimary && <Text text={label} style={themed([$tabLabel, focused && $activeTabText])} />}
     </View>
@@ -72,14 +83,18 @@ function MainTabs() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Home" glyph="⌂" />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} label="Home" icon="home-variant" />
+          ),
         }}
       />
       <Tabs.Screen
         name="Accounts"
         component={AccountsScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Accounts" glyph="▣" />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} label="Accounts" icon="wallet-outline" />
+          ),
         }}
       />
       <Tabs.Screen
@@ -93,14 +108,18 @@ function MainTabs() {
         name="Analytics"
         component={AnalyticsScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Analytics" glyph="◔" />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} label="Analytics" icon="chart-line-variant" />
+          ),
         }}
       />
       <Tabs.Screen
         name="Settings"
         component={SettingsNavigator}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Settings" glyph="⚙" />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} label="Settings" icon="cog-outline" />
+          ),
         }}
       />
     </Tabs.Navigator>
@@ -164,6 +183,22 @@ const $tabIcon: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   gap: spacing.xxxs,
 })
 
+const $tabBadge: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainerHigh,
+  borderColor: colors.palette.stroke,
+  borderRadius: 16,
+  borderWidth: 1,
+  height: 32,
+  justifyContent: "center",
+  width: 32,
+})
+
+const $activeTabBadge: ThemedStyle<ViewStyle> = () => ({
+  backgroundColor: "rgba(62, 165, 118, 0.18)",
+  borderColor: "rgba(108, 220, 160, 0.34)",
+})
+
 const $primaryTabIcon: ThemedStyle<ViewStyle> = ({ colors }) => ({
   width: 62,
   height: 62,
@@ -177,12 +212,6 @@ const $primaryTabLogo: ViewStyle = {
 }
 
 const $activeTabIcon: ThemedStyle<ViewStyle> = () => ({})
-
-const $tabGlyph: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.textDim,
-  fontSize: 30,
-  lineHeight: 32,
-})
 
 const $tabLabel: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
