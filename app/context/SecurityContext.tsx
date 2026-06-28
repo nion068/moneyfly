@@ -15,8 +15,45 @@ import { useMMKVString } from "react-native-mmkv"
 
 import { storage } from "@/utils/storage"
 
+export const DEFAULT_BIOMETRIC_LOCK_DELAY_SECONDS = 30
+
+export const BIOMETRIC_LOCK_DELAY_OPTIONS = [0, 15, 30, 60, 300] as const
+
+export type BiometricLockDelaySeconds = (typeof BIOMETRIC_LOCK_DELAY_OPTIONS)[number]
+
+export function getBiometricLockDelayLabel(delay: BiometricLockDelaySeconds) {
+  switch (delay) {
+    case 0:
+      return "Immediately"
+    case 15:
+      return "After 15 seconds"
+    case 30:
+      return "After 30 seconds"
+    case 60:
+      return "After 1 minute"
+    case 300:
+      return "After 5 minutes"
+  }
+}
+
+export function getBiometricLockDelaySummary(delay: BiometricLockDelaySeconds) {
+  switch (delay) {
+    case 0:
+      return "immediately"
+    case 15:
+      return "15 seconds"
+    case 30:
+      return "30 seconds"
+    case 60:
+      return "1 minute"
+    case 300:
+      return "5 minutes"
+  }
+}
+
 type SecurityContextType = {
   biometricEnabled: boolean
+  biometricLockDelaySeconds: BiometricLockDelaySeconds
   biometricSupported: boolean
   biometricEnrolled: boolean
   isChecking: boolean
@@ -24,6 +61,7 @@ type SecurityContextType = {
   isLocked: boolean
   error?: string
   setBiometricEnabled: (enabled: boolean) => Promise<boolean>
+  setBiometricLockDelaySeconds: (delay: BiometricLockDelaySeconds) => void
   unlock: () => Promise<boolean>
 }
 
@@ -57,6 +95,7 @@ function getAuthenticationErrorMessage(error?: string) {
 
 export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
   const [storedEnabled, setStoredEnabled] = useMMKVString("Security.biometricEnabled", storage)
+  const [storedDelay, setStoredDelay] = useMMKVString("Security.biometricLockDelaySeconds", storage)
   const [biometricSupported, setBiometricSupported] = useState(false)
   const [biometricEnrolled, setBiometricEnrolled] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
@@ -64,7 +103,20 @@ export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
   const [isLocked, setIsLocked] = useState(storedEnabled === "true")
   const [error, setError] = useState<string>()
   const isAuthenticatingRef = useRef(false)
+  const lockTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const biometricEnabled = storedEnabled === "true"
+  const parsedDelay = Number(storedDelay)
+  const biometricLockDelaySeconds = BIOMETRIC_LOCK_DELAY_OPTIONS.includes(
+    parsedDelay as BiometricLockDelaySeconds,
+  )
+    ? (parsedDelay as BiometricLockDelaySeconds)
+    : DEFAULT_BIOMETRIC_LOCK_DELAY_SECONDS
+
+  const clearPendingLock = useCallback(() => {
+    if (!lockTimeoutRef.current) return
+    clearTimeout(lockTimeoutRef.current)
+    lockTimeoutRef.current = undefined
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -174,25 +226,52 @@ export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
         const ok = await authenticate()
         if (!ok) return false
       }
+      clearPendingLock()
       setStoredEnabled(enabled ? "true" : "false")
       setIsLocked(false)
       return true
     },
-    [authenticate, biometricEnabled, setStoredEnabled],
+    [authenticate, biometricEnabled, clearPendingLock, setStoredEnabled],
   )
 
   useEffect(() => {
     const handleAppState = (nextState: AppStateStatus) => {
       if (isAuthenticatingRef.current) return
-      if (nextState !== "active" && biometricEnabled) setIsLocked(true)
+      if (nextState === "active") {
+        clearPendingLock()
+        return
+      }
+      if (!biometricEnabled) return
+
+      clearPendingLock()
+      if (biometricLockDelaySeconds === 0) {
+        setIsLocked(true)
+        return
+      }
+
+      lockTimeoutRef.current = setTimeout(() => {
+        lockTimeoutRef.current = undefined
+        if (!isAuthenticatingRef.current) setIsLocked(true)
+      }, biometricLockDelaySeconds * 1000)
     }
     const subscription = AppState.addEventListener("change", handleAppState)
-    return () => subscription.remove()
-  }, [biometricEnabled])
+    return () => {
+      clearPendingLock()
+      subscription.remove()
+    }
+  }, [biometricEnabled, biometricLockDelaySeconds, clearPendingLock])
+
+  const setBiometricLockDelaySeconds = useCallback(
+    (delay: BiometricLockDelaySeconds) => {
+      setStoredDelay(String(delay))
+    },
+    [setStoredDelay],
+  )
 
   const value = useMemo(
     () => ({
       biometricEnabled,
+      biometricLockDelaySeconds,
       biometricSupported,
       biometricEnrolled,
       isChecking,
@@ -200,10 +279,12 @@ export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
       isLocked,
       error,
       setBiometricEnabled,
+      setBiometricLockDelaySeconds,
       unlock,
     }),
     [
       biometricEnabled,
+      biometricLockDelaySeconds,
       biometricEnrolled,
       biometricSupported,
       error,
@@ -211,6 +292,7 @@ export const SecurityProvider: FC<PropsWithChildren> = ({ children }) => {
       isChecking,
       isLocked,
       setBiometricEnabled,
+      setBiometricLockDelaySeconds,
       unlock,
     ],
   )

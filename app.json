@@ -9,7 +9,9 @@
   "updates": {
     "fallbackToCacheTimeout": 0
   },
-  "assetBundlePatterns": ["**/*"],
+  "assetBundlePatterns": [
+    "**/*"
+  ],
   "android": {
     "icon": "./assets/images/app-icon-android-legacy.png",
     "package": "com.moneyfly",
@@ -53,5 +55,10 @@
   ],
   "experiments": {
     "tsconfigPaths": true
+  },
+  "extra": {
+    "eas": {
+      "projectId": "37998cb4-00a6-4aa6-8d13-2f661c294993"
+    }
   }
 }

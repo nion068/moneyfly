@@ -2,9 +2,14 @@ import { AppState, AppStateStatus } from "react-native"
 import * as LocalAuthentication from "expo-local-authentication"
 import { act, render, waitFor } from "@testing-library/react-native"
 
-import { SecurityProvider, useSecurity } from "./SecurityContext"
+import {
+  DEFAULT_BIOMETRIC_LOCK_DELAY_SECONDS,
+  SecurityProvider,
+  useSecurity,
+} from "./SecurityContext"
 
 let mockStoredEnabled: string | undefined
+let mockStoredDelay: string | undefined
 
 jest.mock("expo-local-authentication", () => ({
   hasHardwareAsync: jest.fn(),
@@ -16,7 +21,10 @@ jest.mock("expo-local-authentication", () => ({
 jest.mock("react-native-mmkv", () => {
   const React = jest.requireActual("react")
   return {
-    useMMKVString: () => React.useState(mockStoredEnabled),
+    useMMKVString: (key: string) =>
+      React.useState(
+        key === "Security.biometricEnabled" ? mockStoredEnabled : mockStoredDelay,
+      ),
   }
 })
 
@@ -35,6 +43,7 @@ describe("SecurityProvider", () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockStoredEnabled = undefined
+    mockStoredDelay = undefined
     appStateListener = undefined
     ;(LocalAuthentication.hasHardwareAsync as jest.Mock).mockResolvedValue(true)
     ;(LocalAuthentication.isEnrolledAsync as jest.Mock).mockResolvedValue(true)
@@ -47,6 +56,7 @@ describe("SecurityProvider", () => {
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     jest.restoreAllMocks()
   })
 
@@ -61,6 +71,7 @@ describe("SecurityProvider", () => {
     expect(latestContext.biometricSupported).toBe(true)
     expect(latestContext.biometricEnrolled).toBe(true)
     expect(latestContext.biometricEnabled).toBe(false)
+    expect(latestContext.biometricLockDelaySeconds).toBe(DEFAULT_BIOMETRIC_LOCK_DELAY_SECONDS)
     expect(latestContext.isLocked).toBe(false)
     expect(LocalAuthentication.hasHardwareAsync).toHaveBeenCalledTimes(1)
     expect(LocalAuthentication.isEnrolledAsync).toHaveBeenCalledTimes(1)
@@ -193,7 +204,85 @@ describe("SecurityProvider", () => {
     expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled()
   })
 
-  it("locks when the app leaves the foreground after biometric locking is enabled", async () => {
+  it("does not lock immediately when the app leaves the foreground and the delay is non-zero", async () => {
+    jest.useFakeTimers()
+
+    render(
+      <SecurityProvider>
+        <ContextProbe />
+      </SecurityProvider>,
+    )
+
+    await waitFor(() => expect(latestContext.isChecking).toBe(false))
+    await act(async () => {
+      await latestContext.setBiometricEnabled(true)
+    })
+
+    act(() => {
+      appStateListener?.("inactive")
+    })
+
+    expect(latestContext.isLocked).toBe(false)
+  })
+
+  it("locks after the configured timeout when the app stays out of the foreground", async () => {
+    jest.useFakeTimers()
+    mockStoredDelay = "15"
+
+    render(
+      <SecurityProvider>
+        <ContextProbe />
+      </SecurityProvider>,
+    )
+
+    await waitFor(() => expect(latestContext.isChecking).toBe(false))
+    await act(async () => {
+      await latestContext.setBiometricEnabled(true)
+    })
+
+    act(() => {
+      appStateListener?.("background")
+      jest.advanceTimersByTime(14999)
+    })
+
+    expect(latestContext.isLocked).toBe(false)
+
+    act(() => {
+      jest.advanceTimersByTime(1)
+    })
+
+    expect(latestContext.isLocked).toBe(true)
+  })
+
+  it("cancels a pending lock when the app returns to active before the timeout", async () => {
+    jest.useFakeTimers()
+    mockStoredDelay = "15"
+
+    render(
+      <SecurityProvider>
+        <ContextProbe />
+      </SecurityProvider>,
+    )
+
+    await waitFor(() => expect(latestContext.isChecking).toBe(false))
+    await act(async () => {
+      await latestContext.setBiometricEnabled(true)
+    })
+
+    act(() => {
+      appStateListener?.("inactive")
+      jest.advanceTimersByTime(5000)
+      appStateListener?.("active")
+      jest.advanceTimersByTime(15000)
+    })
+
+    expect(latestContext.isLocked).toBe(false)
+  })
+
+  it("locks immediately when the selected delay is zero", async () => {
+    jest.useFakeTimers()
+    mockStoredDelay = "0"
+
     render(
       <SecurityProvider>
         <ContextProbe />
@@ -238,6 +327,8 @@ describe("SecurityProvider", () => {
   })
 
   it("does not lock from app state changes caused by an active authentication prompt", async () => {
+    jest.useFakeTimers()
+    mockStoredDelay = "0"
     let resolveAuthentication: (value: { success: true }) => void = () => {}
     ;(LocalAuthentication.authenticateAsync as jest.Mock).mockImplementation(
       () =>
@@ -302,5 +393,21 @@ describe("SecurityProvider", () => {
       resolveAuthentication({ success: true })
       await firstUnlock
     })
+  })
+
+  it("updates the stored biometric lock delay", async () => {
+    render(
+      <SecurityProvider>
+        <ContextProbe />
+      </SecurityProvider>,
+    )
+
+    await waitFor(() => expect(latestContext.isChecking).toBe(false))
+
+    act(() => {
+      latestContext.setBiometricLockDelaySeconds(60)
+    })
+
+    expect(latestContext.biometricLockDelaySeconds).toBe(60)
   })
 })
