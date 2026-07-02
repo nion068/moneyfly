@@ -48,6 +48,10 @@
     "build:android:device": "eas build --profile development:device --platform android --local",
     "build:android:preview": "eas build --profile preview --platform android --local",
     "build:android:prod": "eas build --profile production --platform android --local",
+    "build:preview:cloud": "eas build --profile preview --platform all --non-interactive --no-wait",
+    "build:prod:cloud": "eas build --profile production --platform all --non-interactive --no-wait",
+    "build:ios:preview:cloud": "eas build --profile preview --platform ios --non-interactive --no-wait",
+    "build:ios:prod:cloud": "eas build --profile production --platform ios --non-interactive --no-wait",
     "build:android:preview:cloud": "eas build --profile preview --platform android --non-interactive --no-wait",
     "build:android:prod:cloud": "eas build --profile production --platform android --non-interactive --no-wait"
   },

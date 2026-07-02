@@ -86,6 +86,19 @@ project without committing the maintainer's project ID:
 EAS_PROJECT_ID=your-project-id pnpm run build:android:preview
 ```
 
+To kick off both Android and iOS cloud builds in one command:
+
+```bash
+EAS_PROJECT_ID=your-project-id pnpm run build:preview:cloud
+```
+
+Android-only cloud builds remain available:
+
+```bash
+EAS_PROJECT_ID=your-project-id pnpm run build:android:preview:cloud
+EAS_PROJECT_ID=your-project-id pnpm run build:android:prod:cloud
+```
+
 Do not commit API keys, Firefly tokens, signing credentials, `.env` files containing secrets, or
 generated native credentials.
 
