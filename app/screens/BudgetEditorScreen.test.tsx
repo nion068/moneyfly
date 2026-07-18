@@ -165,12 +165,12 @@ describe("BudgetEditorScreen", () => {
   })
 
   it("requires an auto-budget amount when auto-budget is enabled", () => {
-    const { getByLabelText, getByText, queryByText } = renderEditor()
+    const { getByLabelText, getByText } = renderEditor()
 
     fireEvent.changeText(getByLabelText("Budget name"), "Utilities")
     fireEvent.changeText(getByLabelText("Budget amount"), "250")
     fireEvent.press(getByLabelText("Auto-budget"))
-    expect(queryByText("Add an amount every period and correct for overspending")).toBeNull()
+    expect(getByText("Add an amount every period and correct for overspending")).toBeTruthy()
     fireEvent.press(getByText("Set a fixed amount every period"))
     fireEvent.press(getByText("Save"))
 

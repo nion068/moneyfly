@@ -43,6 +43,11 @@ const autoBudgetItems: SelectionItem[] = [
   { id: "none", title: "No auto-budget", icon: "calendar-remove-outline" },
   { id: "reset", title: "Set a fixed amount every period", icon: "calendar-sync-outline" },
   { id: "rollover", title: "Add an amount every period", icon: "calendar-plus-outline" },
+  {
+    id: "adjusted",
+    title: "Add an amount every period and correct for overspending",
+    icon: "calendar-refresh-outline",
+  },
 ]
 
 const autoBudgetPeriodItems: SelectionItem[] = [
