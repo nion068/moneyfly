@@ -137,6 +137,7 @@ export const TransactionDetailsScreen: FC<TransactionDetailsScreenProps> = ({
           })}
         />
         <DetailRow label="Category" value={transaction.categoryName || "Uncategorized"} />
+        <DetailRow label="Budget" value={transaction.budgetName || "None"} />
         <DetailRow label="Tags" value={transaction.tags.join(", ") || "None"} />
         <DetailRow label="Notes" value={transaction.notes || "None"} last />
       </FinanceCard>

@@ -360,6 +360,7 @@ describe("Firefly transforms", () => {
         sourceAccountId: "asset-1",
         destinationAccountId: "expense-1",
         categoryName: "Food",
+        budgetId: "budget-food",
         tags: ["work"],
         notes: "Team lunch",
       }),
@@ -376,6 +377,7 @@ describe("Firefly transforms", () => {
           source_id: "asset-1",
           destination_id: "expense-1",
           category_name: "Food",
+          budget_id: "budget-food",
           tags: ["work"],
           notes: "Team lunch",
         },
@@ -411,11 +413,26 @@ describe("Firefly transforms", () => {
           source_id: "asset-1",
           destination_id: "expense-1",
           category_name: "Food",
+          budget_id: undefined,
           tags: undefined,
           notes: undefined,
         },
       ],
     })
+  })
+
+  it("builds a manual Firefly request without a budget when none is selected", () => {
+    expect(
+      manualTransactionToStoreRequest({
+        type: "withdrawal",
+        date: new Date(2026, 5, 6, 14, 5),
+        amount: 250,
+        description: "Lunch",
+        sourceAccountId: "asset-1",
+        destinationAccountId: "expense-1",
+        tags: [],
+      }).transactions[0].budget_id,
+    ).toBeUndefined()
   })
 })
 

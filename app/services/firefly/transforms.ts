@@ -667,6 +667,7 @@ export function manualTransactionToStoreRequest(
         source_id: input.sourceAccountId,
         destination_id: input.destinationAccountId,
         category_name: input.categoryName?.trim() || undefined,
+        budget_id: input.budgetId || undefined,
         tags: input.tags.length > 0 ? input.tags : undefined,
         notes: input.notes?.trim() || undefined,
       },

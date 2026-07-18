@@ -27,7 +27,8 @@ import { formatDisplayNumber } from "@/utils/numbers"
 import { mergeTagNames } from "@/utils/tags"
 
 type AddTransactionScreenProps = AppStackScreenProps<"AddTransaction" | "EditTransaction">
-type SelectorKind = "source" | "destination" | "category" | "tags"
+type SelectorKind = "source" | "destination" | "category" | "budget" | "tags"
+const noBudgetId = "__no_budget__"
 
 const transactionTypes: { label: string; value: TransactionType }[] = [
   { label: "Expense", value: "withdrawal" },
@@ -45,6 +46,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
   const {
     isConfigured,
     accounts,
+    budgets,
     categories,
     tags: fireflyTags,
     createTransaction,
@@ -66,6 +68,8 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
   const [sourceId, setSourceId] = useState("")
   const [destinationId, setDestinationId] = useState("")
   const [categoryName, setCategoryName] = useState("")
+  const [budgetId, setBudgetId] = useState("")
+  const [budgetNameFallback, setBudgetNameFallback] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [notes, setNotes] = useState("")
   const [selector, setSelector] = useState<SelectorKind>()
@@ -141,12 +145,16 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
     setSourceId(split.source_id ?? "")
     setDestinationId(split.destination_id ?? "")
     setCategoryName(split.category_name ?? "")
+    setBudgetId(split.budget_id ?? "")
+    setBudgetNameFallback(split.budget_name ?? "")
     setTags(mergeTagNames(split.tags ?? []))
     setNotes(split.notes ?? "")
   }, [editParams, isEditing, transactionDetail.data])
 
   const source = sourceAccounts.find((account) => account.id === sourceId)
   const destination = destinationAccounts.find((account) => account.id === destinationId)
+  const budget = budgets.data.find((item) => item.id === budgetId)
+  const budgetName = budget?.attributes.name ?? budgetNameFallback
   const today = new Date()
   const selectedDateIsToday =
     date.getFullYear() === today.getFullYear() &&
@@ -178,27 +186,43 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
               title: category.attributes.name,
               icon: "shape-outline" as const,
             }))
-          : [
-              ...fireflyTags.data.map((tag) => ({
-                id: tag.attributes.tag,
-                title: tag.attributes.tag,
-                icon: "tag-outline" as const,
-              })),
-              ...tags
-                .filter(
-                  (selectedTag) =>
-                    !fireflyTags.data.some(
-                      (tag) =>
-                        tag.attributes.tag.toLocaleLowerCase() === selectedTag.toLocaleLowerCase(),
-                    ),
-                )
-                .map((tag) => ({
-                  id: tag,
-                  title: tag,
-                  subtitle: "New tag",
-                  icon: "tag-plus-outline" as const,
+          : selector === "budget"
+            ? [
+                {
+                  id: noBudgetId,
+                  title: "No Budget",
+                  subtitle: "Do not assign this transaction to a budget",
+                  icon: "wallet-outline" as const,
+                },
+                ...budgets.data.map((item) => ({
+                  id: item.id,
+                  title: item.attributes.name,
+                  subtitle: item.attributes.active === false ? "Inactive" : undefined,
+                  icon: "wallet-outline" as const,
                 })),
-            ]
+              ]
+            : [
+                ...fireflyTags.data.map((tag) => ({
+                  id: tag.attributes.tag,
+                  title: tag.attributes.tag,
+                  icon: "tag-outline" as const,
+                })),
+                ...tags
+                  .filter(
+                    (selectedTag) =>
+                      !fireflyTags.data.some(
+                        (tag) =>
+                          tag.attributes.tag.toLocaleLowerCase() ===
+                          selectedTag.toLocaleLowerCase(),
+                      ),
+                  )
+                  .map((tag) => ({
+                    id: tag,
+                    title: tag,
+                    subtitle: "New tag",
+                    icon: "tag-plus-outline" as const,
+                  })),
+              ]
 
   const onDateChange = (value: Date) => {
     const now = new Date()
@@ -244,6 +268,7 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
       sourceAccountId: sourceId,
       destinationAccountId: destinationId,
       categoryName,
+      budgetId: type === "withdrawal" ? budgetId : undefined,
       tags,
       notes,
     }
@@ -443,6 +468,14 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
               placeholder="Optional category"
               onPress={() => setSelector("category")}
             />
+            {type === "withdrawal" && (
+              <SelectorField
+                label="Budget"
+                value={budgetName}
+                placeholder="Optional budget"
+                onPress={() => setSelector("budget")}
+              />
+            )}
             <SelectorField
               label="Tags"
               value={tags.join(", ")}
@@ -482,7 +515,9 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
               ? "Destination Account"
               : selector === "category"
                 ? "Category"
-                : "Tags"
+                : selector === "budget"
+                  ? "Budget"
+                  : "Tags"
         }
         items={selectorItems}
         selectedIds={
@@ -498,7 +533,9 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
                 ? categories.data
                     .filter((category) => category.attributes.name === categoryName)
                     .map((category) => category.id)
-                : tags
+                : selector === "budget"
+                  ? [budgetId || noBudgetId]
+                  : tags
         }
         multiple={selector === "tags"}
         creatable={selector === "tags"}
@@ -511,6 +548,16 @@ export const AddTransactionScreen: FC<AddTransactionScreenProps> = ({ navigation
             setCategoryName(
               categories.data.find((category) => category.id === id)?.attributes.name ?? "",
             )
+          } else if (selector === "budget") {
+            if (id === noBudgetId) {
+              setBudgetId("")
+              setBudgetNameFallback("")
+            } else {
+              setBudgetId(id)
+              setBudgetNameFallback(
+                budgets.data.find((item) => item.id === id)?.attributes.name ?? "",
+              )
+            }
           } else setTags(mergeTagNames(ids))
         }}
         onClose={() => setSelector(undefined)}

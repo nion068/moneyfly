@@ -225,6 +225,7 @@ export type ManualTransactionInput = {
   sourceAccountId: string
   destinationAccountId: string
   categoryName?: string
+  budgetId?: string
   tags: string[]
   notes?: string
 }
