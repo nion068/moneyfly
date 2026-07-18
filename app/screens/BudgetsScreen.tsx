@@ -491,7 +491,7 @@ function buildBudgetSummaries(
 
 function sumSpent(attributes: Pick<FireflyBudget["attributes"], "spent" | "pc_spent">) {
   const entries = attributes.pc_spent?.length ? attributes.pc_spent : attributes.spent
-  return entries?.reduce((total, entry) => total + parseAmount(entry.sum), 0) ?? 0
+  return entries?.reduce((total, entry) => total + Math.abs(parseAmount(entry.sum)), 0) ?? 0
 }
 
 const $container: ThemedStyle<ViewStyle> = ({ spacing }) => ({

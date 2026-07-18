@@ -153,6 +153,28 @@ describe("BudgetsScreen", () => {
     expect(queryByText("Food & Dining")).toBeNull()
   })
 
+  it("treats negative Firefly spent sums as spending when calculating remaining", () => {
+    mockBudgetLimits = [
+      {
+        id: "limit-food",
+        attributes: {
+          budget_id: "budget-food",
+          start: "2026-07-01",
+          end: "2026-07-31",
+          amount: "10000.00",
+          currency_code: "USD",
+          currency_symbol: "$",
+          spent: [{ currency_code: "USD", currency_symbol: "$", sum: "-5000.00" }],
+        },
+      },
+    ]
+
+    const { getAllByText } = renderScreen()
+
+    expect(getAllByText("$ 5,000").length).toBeGreaterThan(0)
+    expect(getAllByText("$ 10,000").length).toBeGreaterThan(0)
+  })
+
   it("changes the selected period from the chips", () => {
     const { getByText } = renderScreen()
 
