@@ -131,7 +131,17 @@ export const BudgetsScreen: FC<BudgetsScreenProps> = ({ navigation }) => {
     navigation.navigate("BudgetEditor")
   }
 
-  function openSummary(summary: BudgetSummary) {
+  function openTransactions(summary: BudgetSummary) {
+    navigation.navigate("BudgetTransactions", {
+      budgetId: summary.budget.id,
+      budgetName: summary.budget.attributes.name,
+      range: budgetRange,
+      allocated: summary.allocated,
+      symbol: summary.symbol,
+    })
+  }
+
+  function openSummaryEditor(summary: BudgetSummary) {
     resetBudgetMutation()
     if (summary.limits.length <= 1) {
       navigation.navigate("BudgetEditor", {
@@ -266,7 +276,8 @@ export const BudgetsScreen: FC<BudgetsScreenProps> = ({ navigation }) => {
             hidden={hideAmounts}
             iconIndex={index}
             fallbackRange={budgetRange}
-            onPress={() => openSummary(summary)}
+            onPress={() => openTransactions(summary)}
+            onEdit={() => openSummaryEditor(summary)}
           />
         ))}
 
@@ -330,12 +341,14 @@ function BudgetCard({
   iconIndex,
   fallbackRange,
   onPress,
+  onEdit,
 }: {
   summary: BudgetSummary
   hidden: boolean
   iconIndex: number
   fallbackRange: { start: string; end: string }
   onPress: () => void
+  onEdit: () => void
 }) {
   const {
     themed,
@@ -348,7 +361,7 @@ function BudgetCard({
 
   return (
     <Pressable
-      accessibilityLabel={`Edit ${summary.budget.attributes.name}`}
+      accessibilityLabel={`View ${summary.budget.attributes.name} transactions`}
       accessibilityRole="button"
       onPress={onPress}
       style={themed($budgetCard)}
@@ -365,7 +378,14 @@ function BudgetCard({
           />
           <Text text={rangeText} numberOfLines={1} style={themed($muted)} />
         </View>
-        <MaterialCommunityIcons name="chevron-right" color={colors.textDim} size={20} />
+        <Pressable
+          accessibilityLabel={`Edit ${summary.budget.attributes.name}`}
+          accessibilityRole="button"
+          onPress={onEdit}
+          style={themed($editButton)}
+        >
+          <MaterialCommunityIcons name="pencil-outline" color={colors.textDim} size={19} />
+        </Pressable>
       </View>
       <ProgressBar
         value={summary.progress}
@@ -670,6 +690,14 @@ const $budgetName: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   fontFamily: typography.primary.semiBold,
   fontSize: 15,
   lineHeight: 20,
+})
+const $editButton: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  alignItems: "center",
+  backgroundColor: colors.palette.surfaceContainerHigh,
+  borderRadius: 17,
+  height: 34,
+  justifyContent: "center",
+  width: 34,
 })
 const $muted: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.textDim,

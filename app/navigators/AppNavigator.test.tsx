@@ -55,6 +55,13 @@ jest.mock("@/screens/BudgetEditorScreen", () => ({
   },
 }))
 
+jest.mock("@/screens/BudgetTransactionsScreen", () => ({
+  BudgetTransactionsScreen: () => {
+    const { View } = require("react-native")
+    return <View />
+  },
+}))
+
 jest.mock("@/screens/BudgetsScreen", () => ({
   BudgetsScreen: () => {
     const { View } = require("react-native")
@@ -163,6 +170,7 @@ describe("AppNavigator", () => {
     const screen = renderNavigator()
 
     expect(screen.getByTestId("stack-screen-BudgetEditor")).toBeTruthy()
+    expect(screen.getByTestId("stack-screen-BudgetTransactions")).toBeTruthy()
     expect(screen.getByTestId("stack-screen-AddTransaction")).toBeTruthy()
     expect(screen.getByTestId("stack-screen-EditTransaction")).toBeTruthy()
   })

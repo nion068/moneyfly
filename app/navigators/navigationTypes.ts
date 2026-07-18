@@ -30,6 +30,13 @@ export type AppStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>
   AddTransaction: undefined
   BudgetEditor: { budgetId?: string; limitId?: string } | undefined
+  BudgetTransactions: {
+    budgetId: string
+    budgetName: string
+    range: { start: string; end: string }
+    allocated: number
+    symbol: string
+  }
   TransactionDetails: { transaction: FlatTransaction }
   EditTransaction: { groupId: string; journalId?: string }
 }

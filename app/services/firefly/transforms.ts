@@ -45,6 +45,7 @@ export function flattenFireflyTransactions(transactions: FireflyTransaction[]): 
       destinationId: split.destination_id,
       destinationName: split.destination_name ?? "",
       categoryName: split.category_name,
+      budgetId: split.budget_id ?? undefined,
       budgetName: split.budget_name,
       tags: split.tags ?? [],
       notes: split.notes,
@@ -566,6 +567,7 @@ export type LocalTransactionFilters = {
   type: "all" | TransactionType
   search: string
   categoryNames: string[]
+  budgetIds?: string[]
   accounts: FireflyAccount[]
   startDate?: string
   endDate?: string
@@ -581,6 +583,14 @@ export function filterTransactions(
     if (
       filters.categoryNames.length > 0 &&
       !filters.categoryNames.includes(transaction.categoryName ?? "Uncategorized")
+    ) {
+      return false
+    }
+    if (filters.budgetIds?.length && !transaction.budgetId) return false
+    if (
+      filters.budgetIds?.length &&
+      transaction.budgetId &&
+      !filters.budgetIds.includes(transaction.budgetId)
     ) {
       return false
     }
@@ -687,6 +697,7 @@ export function manualTransactionToUpdateRequest(
     transactions: request.transactions.map((transaction) => ({
       ...transaction,
       transaction_journal_id: journalId,
+      budget_id: input.type === "withdrawal" ? input.budgetId || null : undefined,
     })),
   }
 }

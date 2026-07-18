@@ -122,7 +122,7 @@ export type FireflyTransactionSplit = {
   destination_name?: string
   category_id?: string
   category_name?: string
-  budget_id?: string
+  budget_id?: string | null
   budget_name?: string
   tags?: string[]
   notes?: string
@@ -242,6 +242,7 @@ export type FlatTransaction = {
   destinationId?: string
   destinationName: string
   categoryName?: string
+  budgetId?: string
   budgetName?: string
   tags: string[]
   notes?: string
@@ -307,7 +308,7 @@ export type StoreTransactionSplit = {
   destination_id?: string
   category_id?: string
   category_name?: string
-  budget_id?: string
+  budget_id?: string | null
   budget_name?: string
   tags?: string[]
   notes?: string

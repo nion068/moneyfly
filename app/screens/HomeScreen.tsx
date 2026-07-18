@@ -38,13 +38,18 @@ type HomeScreenProps = MainTabScreenProps<"Home">
 type TypeFilter = "All" | "Expenses" | "Income" | "Transfers"
 type StructuredFilters = {
   categoryNames: string[]
+  budgetIds: string[]
   accountIds: string[]
   startDate?: string
   endDate?: string
 }
 
 const typeFilters: TypeFilter[] = ["All", "Expenses", "Income", "Transfers"]
-const emptyStructuredFilters: StructuredFilters = { categoryNames: [], accountIds: [] }
+const emptyStructuredFilters: StructuredFilters = {
+  categoryNames: [],
+  budgetIds: [],
+  accountIds: [],
+}
 const monthNames = Array.from({ length: 12 }, (_, month) =>
   new Date(2020, month, 1).toLocaleDateString("en-US", { month: "short" }),
 )
@@ -60,6 +65,7 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
     transactions,
     accounts,
     categories,
+    budgets,
     selectedCurrency,
     summariesByCurrency,
     refresh,
@@ -120,6 +126,7 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
             : "all",
     search,
     categoryNames: filters.categoryNames,
+    budgetIds: filters.budgetIds,
     accounts: selectedAccounts,
     startDate: filters.startDate,
     endDate: filters.endDate,
@@ -130,6 +137,7 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
     buildMonthlySummary([])
   const activeFilterCount =
     filters.categoryNames.length +
+    filters.budgetIds.length +
     filters.accountIds.length +
     Number(!!filters.startDate) +
     Number(!!filters.endDate)
@@ -312,7 +320,12 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
                   />
                 ))}
               </ScrollView>
-              <Pressable onPress={() => setShowFilters(true)} style={themed($filterButton)}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Filter transactions"
+                onPress={() => setShowFilters(true)}
+                style={themed($filterButton)}
+              >
                 <MaterialCommunityIcons name="tune-variant" size={19} style={themed($icon)} />
                 {activeFilterCount > 0 && (
                   <View style={themed($filterBadge)}>
@@ -390,6 +403,13 @@ export const HomeScreen: FC<HomeScreenProps> = ({ navigation }) => {
           title: category.attributes.name,
           icon: "shape-outline",
         }))}
+        budgets={budgets.data
+          .filter((budget) => budget.attributes.active !== false)
+          .map((budget) => ({
+            id: budget.id,
+            title: budget.attributes.name,
+            icon: "wallet-outline",
+          }))}
         accounts={ownedAccounts.map((account) => ({
           id: account.id,
           title: account.attributes.name,
@@ -569,6 +589,7 @@ function TransactionFilterSheet({
   value,
   selectedMonth,
   categories,
+  budgets,
   accounts,
   onApply,
   onClose,
@@ -577,13 +598,14 @@ function TransactionFilterSheet({
   value: StructuredFilters
   selectedMonth: Date
   categories: SelectionItem[]
+  budgets: SelectionItem[]
   accounts: SelectionItem[]
   onApply: (value: StructuredFilters) => void
   onClose: () => void
 }) {
   const { themed } = useAppTheme()
   const [draft, setDraft] = useState(value)
-  const [selector, setSelector] = useState<"categories" | "accounts">()
+  const [selector, setSelector] = useState<"categories" | "budgets" | "accounts">()
   const [dateField, setDateField] = useState<"startDate" | "endDate">()
   useEffect(() => setDraft(value), [value, visible])
   const { start, end } = getMonthRange(selectedMonth)
@@ -641,6 +663,13 @@ function TransactionFilterSheet({
               onPress={() => setSelector("categories")}
             />
             <FilterField
+              label="Budgets"
+              value={
+                draft.budgetIds.length > 0 ? `${draft.budgetIds.length} selected` : "All budgets"
+              }
+              onPress={() => setSelector("budgets")}
+            />
+            <FilterField
               label="Accounts"
               value={
                 draft.accountIds.length > 0 ? `${draft.accountIds.length} selected` : "All accounts"
@@ -696,9 +725,17 @@ function TransactionFilterSheet({
       />
       <SelectionSheet
         visible={!!selector}
-        title={selector === "categories" ? "Categories" : "Accounts"}
-        items={selector === "categories" ? categories : accounts}
-        selectedIds={selector === "categories" ? selectedCategoryIds : draft.accountIds}
+        title={
+          selector === "categories" ? "Categories" : selector === "budgets" ? "Budgets" : "Accounts"
+        }
+        items={selector === "categories" ? categories : selector === "budgets" ? budgets : accounts}
+        selectedIds={
+          selector === "categories"
+            ? selectedCategoryIds
+            : selector === "budgets"
+              ? draft.budgetIds
+              : draft.accountIds
+        }
         multiple
         onSelect={(ids) => {
           if (selector === "categories") {
@@ -708,6 +745,8 @@ function TransactionFilterSheet({
                 .filter((category) => ids.includes(category.id))
                 .map((category) => category.title),
             }))
+          } else if (selector === "budgets") {
+            setDraft((current) => ({ ...current, budgetIds: ids }))
           } else {
             setDraft((current) => ({ ...current, accountIds: ids }))
           }

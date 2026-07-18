@@ -48,6 +48,8 @@ const groupedTransactions: FireflyTransaction[] = [
           source_name: "bKash",
           destination_name: "KFC",
           category_name: "Food & Dining",
+          budget_id: "budget-food",
+          budget_name: "Food",
           tags: ["lunch"],
           currency_code: "BDT",
           currency_symbol: "৳",
@@ -85,6 +87,8 @@ describe("Firefly transforms", () => {
       journalId: "journal-1",
       amount: 450,
       categoryName: "Food & Dining",
+      budgetId: "budget-food",
+      budgetName: "Food",
       tags: ["lunch"],
     })
   })
@@ -308,6 +312,7 @@ describe("Firefly transforms", () => {
         type: "withdrawal",
         search: "lunch",
         categoryNames: ["Food & Dining"],
+        budgetIds: ["budget-food"],
         accounts: [wallet],
         startDate: "2026-06-04",
         endDate: "2026-06-04",
@@ -318,6 +323,7 @@ describe("Firefly transforms", () => {
         type: "withdrawal",
         search: "",
         categoryNames: [],
+        budgetIds: ["budget-rent"],
         accounts: [wallet],
         startDate: "2026-06-05",
       }),
@@ -385,7 +391,7 @@ describe("Firefly transforms", () => {
     })
   })
 
-  it("builds a safe update request with the existing journal id", () => {
+  it("builds a safe update request with the existing journal id and clears a missing budget", () => {
     expect(
       manualTransactionToUpdateRequest(
         {
@@ -413,7 +419,7 @@ describe("Firefly transforms", () => {
           source_id: "asset-1",
           destination_id: "expense-1",
           category_name: "Food",
-          budget_id: undefined,
+          budget_id: null,
           tags: undefined,
           notes: undefined,
         },

@@ -14,6 +14,7 @@ import { AiAssistantScreen } from "@/screens/AiAssistantScreen"
 import { AnalyticsScreen } from "@/screens/AnalyticsScreen"
 import { BudgetEditorScreen } from "@/screens/BudgetEditorScreen"
 import { BudgetsScreen } from "@/screens/BudgetsScreen"
+import { BudgetTransactionsScreen } from "@/screens/BudgetTransactionsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { HomeScreen } from "@/screens/HomeScreen"
 import { TransactionDetailsScreen } from "@/screens/TransactionDetailsScreen"
@@ -163,6 +164,11 @@ const AppStack = () => {
         name="BudgetEditor"
         component={BudgetEditorScreen}
         options={{ animation: "slide_from_bottom" }}
+      />
+      <Stack.Screen
+        name="BudgetTransactions"
+        component={BudgetTransactionsScreen}
+        options={{ animation: "slide_from_right" }}
       />
       <Stack.Screen
         name="TransactionDetails"

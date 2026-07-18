@@ -203,6 +203,20 @@ describe("BudgetsScreen", () => {
     })
   })
 
+  it("opens the budget transaction list from a budget card", () => {
+    const { getByLabelText } = renderScreen()
+
+    fireEvent.press(getByLabelText("View Food & Dining transactions"))
+
+    expect(mockNavigate).toHaveBeenCalledWith("BudgetTransactions", {
+      budgetId: "budget-food",
+      budgetName: "Food & Dining",
+      range: { start: "2026-07-01", end: "2026-07-31" },
+      allocated: 500,
+      symbol: "$",
+    })
+  })
+
   it("navigates directly to edit when no visible limit exists", () => {
     const { getByLabelText } = renderScreen()
 
