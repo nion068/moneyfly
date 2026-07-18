@@ -17,6 +17,7 @@ import {
   CurrencySummary,
   FireflyAccount,
   FireflyBudget,
+  FireflyBudgetLimit,
   FireflyCategory,
   FireflyCurrency,
   FireflyTag,
@@ -24,6 +25,8 @@ import {
   FireflyUser,
   FlatTransaction,
   StoreAccountRequest,
+  StoreBudgetLimitRequest,
+  StoreBudgetRequest,
   StoreCategoryRequest,
   StoreTagRequest,
   StoreTransactionRequest,
@@ -32,10 +35,14 @@ import {
 import { FireflyApi, FireflyProblem, FireflyResult, normalizeBaseUrl } from "@/services/firefly/api"
 import {
   buildSummariesByCurrency,
+  BudgetPeriod,
   clampMonthToPresent,
   flattenFireflyTransactions,
+  getBudgetRange,
   getMonthRange,
+  shiftBudgetPeriod,
   shiftMonth,
+  startOfBudgetPeriod,
 } from "@/services/firefly/transforms"
 
 export type LoadState<T> = {
@@ -53,11 +60,16 @@ type FireflyContextType = {
   connectionError?: string
   selectedMonth: Date
   isMonthLoading: boolean
+  selectedBudgetPeriod: BudgetPeriod
+  selectedBudgetAnchor: Date
+  budgetRange: { start: string; end: string }
+  isBudgetPeriodLoading: boolean
   accounts: LoadState<FireflyAccount[]>
   currencies: LoadState<FireflyCurrency[]>
   transactions: LoadState<FlatTransaction[]>
   categories: LoadState<FireflyCategory[]>
   budgets: LoadState<FireflyBudget[]>
+  budgetLimits: LoadState<FireflyBudgetLimit[]>
   tags: LoadState<FireflyTag[]>
   currentUser: LoadState<FireflyUser | null>
   summariesByCurrency: CurrencySummary[]
@@ -69,6 +81,7 @@ type FireflyContextType = {
   transactionUpdate: LoadState<FireflyTransaction | null>
   transactionDeletion: LoadState<null>
   settingsMutation: LoadState<null>
+  budgetMutation: LoadState<FireflyBudget | null>
   setConnection: (baseUrl: string, token: string) => Promise<boolean>
   disconnect: () => void
   toggleHideAmounts: () => void
@@ -76,6 +89,10 @@ type FireflyContextType = {
   previousMonth: () => void
   nextMonth: () => void
   setSelectedMonth: (month: Date) => void
+  setSelectedBudgetPeriod: (period: BudgetPeriod) => void
+  previousBudgetPeriod: () => void
+  nextBudgetPeriod: () => void
+  setSelectedBudgetAnchor: (anchor: Date) => void
   setSelectedCurrency: (currency: string) => void
   createTransaction: (request: StoreTransactionRequest) => Promise<boolean>
   resetTransactionCreation: () => void
@@ -85,6 +102,14 @@ type FireflyContextType = {
   resetTransactionUpdate: () => void
   deleteTransaction: (id: string) => Promise<boolean>
   resetTransactionDeletion: () => void
+  saveBudgetWithLimit: (
+    budgetRequest: StoreBudgetRequest,
+    limitRequest: Omit<StoreBudgetLimitRequest, "budget_id">,
+    existingBudget?: FireflyBudget,
+    existingLimit?: FireflyBudgetLimit,
+  ) => Promise<boolean>
+  deleteBudget: (id: string) => Promise<boolean>
+  resetBudgetMutation: () => void
   saveAccount: (request: StoreAccountRequest, id?: string) => Promise<boolean>
   saveCategory: (request: StoreCategoryRequest, id?: string) => Promise<boolean>
   deleteCategory: (id: string) => Promise<boolean>
@@ -106,11 +131,17 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   )
   const [isMonthLoading, setIsMonthLoading] = useState(false)
+  const [selectedBudgetPeriod, setSelectedBudgetPeriodState] = useState<BudgetPeriod>("month")
+  const [selectedBudgetAnchor, setSelectedBudgetAnchorState] = useState(
+    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  )
+  const [isBudgetPeriodLoading, setIsBudgetPeriodLoading] = useState(false)
   const [accounts, setAccounts] = useState(() => emptyState<FireflyAccount[]>([]))
   const [currencies, setCurrencies] = useState(() => emptyState<FireflyCurrency[]>([]))
   const [transactions, setTransactions] = useState(() => emptyState<FlatTransaction[]>([]))
   const [categories, setCategories] = useState(() => emptyState<FireflyCategory[]>([]))
   const [budgets, setBudgets] = useState(() => emptyState<FireflyBudget[]>([]))
+  const [budgetLimits, setBudgetLimits] = useState(() => emptyState<FireflyBudgetLimit[]>([]))
   const [tags, setTags] = useState(() => emptyState<FireflyTag[]>([]))
   const [currentUser, setCurrentUser] = useState(() => emptyState<FireflyUser | null>(null))
   const [selectedCurrency, setSelectedCurrency] = useState<string>()
@@ -127,12 +158,17 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   )
   const [transactionDeletion, setTransactionDeletion] = useState(() => emptyState<null>(null))
   const [settingsMutation, setSettingsMutation] = useState(() => emptyState<null>(null))
+  const [budgetMutation, setBudgetMutation] = useState(() => emptyState<FireflyBudget | null>(null))
   const requestId = useRef(0)
 
   const hideAmounts = storedHideAmounts === "true"
   const baseUrl = storedBaseUrl ?? ""
   const token = storedToken ?? ""
   const isConfigured = baseUrl.length > 0 && token.length > 0
+  const budgetRange = useMemo(
+    () => getBudgetRange(selectedBudgetAnchor, selectedBudgetPeriod),
+    [selectedBudgetAnchor, selectedBudgetPeriod],
+  )
 
   const load = useCallback(
     async (manual = false) => {
@@ -148,6 +184,8 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
         if (categories.data.length === 0)
           setCategories((state) => ({ ...state, status: "loading" }))
         if (budgets.data.length === 0) setBudgets((state) => ({ ...state, status: "loading" }))
+        if (budgetLimits.data.length === 0)
+          setBudgetLimits((state) => ({ ...state, status: "loading" }))
         if (tags.data.length === 0) setTags((state) => ({ ...state, status: "loading" }))
       }
 
@@ -159,6 +197,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
         transactionResult,
         categoryResult,
         budgetResult,
+        budgetLimitResult,
         tagResult,
         userResult,
       ] = await Promise.all([
@@ -166,7 +205,8 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
         api.getCurrencies(),
         api.getTransactions(range),
         api.getCategories(),
-        api.getBudgets(),
+        api.getBudgets(budgetRange),
+        api.getBudgetLimits(budgetRange),
         api.getTags(),
         api.getCurrentUser(),
       ])
@@ -197,6 +237,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       )
       apply(categoryResult, setCategories)
       apply(budgetResult, setBudgets)
+      apply(budgetLimitResult, setBudgetLimits)
       apply(tagResult, setTags)
       if (userResult.kind === "ok") {
         setCurrentUser({ data: userResult.data, status: "ready" })
@@ -210,16 +251,20 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
         transactionResult,
         categoryResult,
         budgetResult,
+        budgetLimitResult,
         tagResult,
         userResult,
       ]
       if (results.some((result) => result.kind === "ok")) setLastSyncedAt(new Date())
       setIsRefreshing(false)
       setIsMonthLoading(false)
+      setIsBudgetPeriodLoading(false)
     },
     [
       accounts.data.length,
       baseUrl,
+      budgetLimits.data.length,
+      budgetRange,
       budgets.data.length,
       categories.data.length,
       currencies.data.length,
@@ -233,7 +278,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
 
   useEffect(() => {
     void load()
-  }, [baseUrl, token, selectedMonth]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [baseUrl, budgetRange, selectedMonth, token]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const summariesByCurrency = useMemo(
     () => buildSummariesByCurrency(transactions.data),
@@ -278,6 +323,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setTransactions(emptyState([]))
     setCategories(emptyState([]))
     setBudgets(emptyState([]))
+    setBudgetLimits(emptyState([]))
     setTags(emptyState([]))
     setCurrentUser(emptyState(null))
     setSelectedCurrency(undefined)
@@ -289,6 +335,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     setTransactionUpdate(emptyState(null))
     setTransactionDeletion(emptyState(null))
     setSettingsMutation(emptyState(null))
+    setBudgetMutation(emptyState(null))
   }, [setStoredBaseUrl, setStoredToken])
 
   const createTransaction = useCallback(
@@ -361,6 +408,78 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   )
   const resetTransactionDeletion = useCallback(() => setTransactionDeletion(emptyState(null)), [])
 
+  const saveBudgetWithLimit = useCallback(
+    async (
+      budgetRequest: StoreBudgetRequest,
+      limitRequest: Omit<StoreBudgetLimitRequest, "budget_id">,
+      existingBudget?: FireflyBudget,
+      existingLimit?: FireflyBudgetLimit,
+    ) => {
+      if (!isConfigured) return false
+      setBudgetMutation({ data: null, status: "loading" })
+      const api = new FireflyApi(baseUrl, token)
+      const budgetResult = existingBudget
+        ? await api.updateBudget(existingBudget.id, budgetRequest)
+        : await api.createBudget(budgetRequest)
+      if (budgetResult.kind !== "ok") {
+        setBudgetMutation({ data: null, status: "error", error: budgetResult })
+        return false
+      }
+
+      const fullLimitRequest = {
+        ...limitRequest,
+        budget_id: budgetResult.data.id,
+      }
+      const limitResult = existingLimit
+        ? await api.updateBudgetLimit(budgetResult.data.id, existingLimit.id, fullLimitRequest)
+        : await api.createBudgetLimit(budgetResult.data.id, fullLimitRequest)
+      if (limitResult.kind !== "ok") {
+        const action = existingBudget ? "updated" : "created"
+        const limitAction = existingLimit ? "update" : "create"
+        setBudgetMutation({
+          data: budgetResult.data,
+          status: "error",
+          error: {
+            ...limitResult,
+            message: `Budget ${action}, but Firefly could not ${limitAction} the limit: ${limitResult.message}`,
+          },
+        })
+        await load(true)
+        return false
+      }
+
+      setBudgetMutation({ data: budgetResult.data, status: "ready" })
+      await load(true)
+      return true
+    },
+    [baseUrl, isConfigured, load, token],
+  )
+  const deleteBudget = useCallback(
+    async (id: string) => {
+      if (!isConfigured) return false
+      setBudgetMutation({ data: null, status: "loading" })
+      const result = await new FireflyApi(baseUrl, token).deleteBudget(id)
+      if (result.kind !== "ok") {
+        setBudgetMutation({ data: null, status: "error", error: result })
+        return false
+      }
+
+      setBudgetMutation({ data: null, status: "ready" })
+      setBudgets((state) => ({
+        ...state,
+        data: state.data.filter((budget) => budget.id !== id),
+      }))
+      setBudgetLimits((state) => ({
+        ...state,
+        data: state.data.filter((limit) => limit.attributes.budget_id !== id),
+      }))
+      await load(true)
+      return true
+    },
+    [baseUrl, isConfigured, load, token],
+  )
+  const resetBudgetMutation = useCallback(() => setBudgetMutation(emptyState(null)), [])
+
   const runSettingsMutation = useCallback(
     async (operation: (api: FireflyApi) => Promise<FireflyResult<unknown>>) => {
       if (!isConfigured) return false
@@ -421,6 +540,31 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     [selectedMonth],
   )
 
+  const changeSelectedBudgetAnchor = useCallback(
+    (anchor: Date) => {
+      const nextAnchor = startOfBudgetPeriod(anchor, selectedBudgetPeriod)
+      if (
+        nextAnchor.getFullYear() === selectedBudgetAnchor.getFullYear() &&
+        nextAnchor.getMonth() === selectedBudgetAnchor.getMonth()
+      ) {
+        return
+      }
+      setIsBudgetPeriodLoading(true)
+      setSelectedBudgetAnchorState(nextAnchor)
+    },
+    [selectedBudgetAnchor, selectedBudgetPeriod],
+  )
+
+  const changeSelectedBudgetPeriod = useCallback(
+    (period: BudgetPeriod) => {
+      if (period === selectedBudgetPeriod) return
+      setIsBudgetPeriodLoading(true)
+      setSelectedBudgetPeriodState(period)
+      setSelectedBudgetAnchorState((anchor) => startOfBudgetPeriod(anchor, period))
+    },
+    [selectedBudgetPeriod],
+  )
+
   const value = useMemo<FireflyContextType>(
     () => ({
       isConfigured,
@@ -431,11 +575,16 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       connectionError,
       selectedMonth,
       isMonthLoading,
+      selectedBudgetPeriod,
+      selectedBudgetAnchor,
+      budgetRange,
+      isBudgetPeriodLoading,
       accounts,
       currencies,
       transactions,
       categories,
       budgets,
+      budgetLimits,
       tags,
       currentUser,
       summariesByCurrency,
@@ -447,6 +596,7 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       transactionUpdate,
       transactionDeletion,
       settingsMutation,
+      budgetMutation,
       setConnection,
       disconnect,
       toggleHideAmounts: () => setStoredHideAmounts(hideAmounts ? "false" : "true"),
@@ -454,6 +604,16 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       previousMonth: () => changeSelectedMonth(shiftMonth(selectedMonth, -1)),
       nextMonth: () => changeSelectedMonth(shiftMonth(selectedMonth, 1)),
       setSelectedMonth: changeSelectedMonth,
+      setSelectedBudgetPeriod: changeSelectedBudgetPeriod,
+      previousBudgetPeriod: () =>
+        changeSelectedBudgetAnchor(
+          shiftBudgetPeriod(selectedBudgetAnchor, selectedBudgetPeriod, -1),
+        ),
+      nextBudgetPeriod: () =>
+        changeSelectedBudgetAnchor(
+          shiftBudgetPeriod(selectedBudgetAnchor, selectedBudgetPeriod, 1),
+        ),
+      setSelectedBudgetAnchor: changeSelectedBudgetAnchor,
       setSelectedCurrency,
       createTransaction,
       resetTransactionCreation,
@@ -463,6 +623,9 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       resetTransactionUpdate,
       deleteTransaction,
       resetTransactionDeletion,
+      saveBudgetWithLimit,
+      deleteBudget,
+      resetBudgetMutation,
       saveAccount,
       saveCategory,
       deleteCategory: removeCategory,
@@ -473,17 +636,24 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
     [
       accounts,
       baseUrl,
+      budgetLimits,
+      budgetMutation,
+      budgetRange,
       budgets,
       categories,
+      changeSelectedBudgetAnchor,
+      changeSelectedBudgetPeriod,
       changeSelectedMonth,
       connectionError,
       currentUser,
       createTransaction,
       currencies,
       deleteTransaction,
+      deleteBudget,
       disconnect,
       hideAmounts,
       isConfigured,
+      isBudgetPeriodLoading,
       isMonthLoading,
       isRefreshing,
       isTestingConnection,
@@ -494,13 +664,17 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
       resetTransactionCreation,
       resetTransactionDeletion,
       resetTransactionUpdate,
+      resetBudgetMutation,
       resetSettingsMutation,
       removeCategory,
       removeTag,
       saveAccount,
+      saveBudgetWithLimit,
       saveCategory,
       saveTag,
       selectedCurrency,
+      selectedBudgetAnchor,
+      selectedBudgetPeriod,
       selectedMonth,
       setConnection,
       setStoredHideAmounts,

@@ -21,6 +21,8 @@ export function SettingsEditorModal({
   children,
   saveLabel = "Save",
   secondarySaveLabel,
+  secondarySaveDestructive,
+  secondarySaveDisabled,
   saving,
   canSave,
   focusOnChangeKey,
@@ -33,6 +35,8 @@ export function SettingsEditorModal({
   children: ReactNode
   saveLabel?: string
   secondarySaveLabel?: string
+  secondarySaveDestructive?: boolean
+  secondarySaveDisabled?: boolean
   saving?: boolean
   canSave: boolean
   focusOnChangeKey?: string | number | boolean | null
@@ -45,6 +49,7 @@ export function SettingsEditorModal({
     theme: { colors },
   } = useAppTheme()
   const scrollRef = useRef<ScrollView>(null)
+  const isSecondaryDisabled = saving || (secondarySaveDisabled ?? !canSave)
 
   useEffect(() => {
     if (!visible || !focusOnChangeKey) return
@@ -76,18 +81,25 @@ export function SettingsEditorModal({
               {!!secondarySaveLabel && !!onSecondarySave && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityState={{ busy: saving, disabled: saving || !canSave }}
-                  disabled={saving || !canSave}
+                  accessibilityState={{ busy: saving, disabled: isSecondaryDisabled }}
+                  disabled={isSecondaryDisabled}
                   onPress={onSecondarySave}
                   style={({ pressed }) =>
                     themed([
                       $secondarySaveButton,
+                      secondarySaveDestructive && $secondarySaveButtonDestructive,
                       pressed && $saveButtonPressed,
-                      (saving || !canSave) && $saveButtonDisabled,
+                      isSecondaryDisabled && $saveButtonDisabled,
                     ])
                   }
                 >
-                  <Text text={secondarySaveLabel} style={themed($secondarySaveButtonText)} />
+                  <Text
+                    text={secondarySaveLabel}
+                    style={themed([
+                      $secondarySaveButtonText,
+                      secondarySaveDestructive && $secondarySaveButtonTextDestructive,
+                    ])}
+                  />
                 </Pressable>
               )}
               <Pressable
@@ -185,6 +197,9 @@ const $secondarySaveButton: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
   minHeight: 48,
   paddingHorizontal: spacing.md,
 })
+const $secondarySaveButtonDestructive: ThemedStyle<ViewStyle> = ({ colors }) => ({
+  borderColor: colors.palette.tertiary300,
+})
 const $saveButtonPressed: ThemedStyle<ViewStyle> = () => ({
   opacity: 0.86,
 })
@@ -200,4 +215,7 @@ const $secondarySaveButtonText: ThemedStyle<TextStyle> = ({ colors, typography }
   color: colors.tint,
   fontFamily: typography.primary.semiBold,
   fontSize: 15,
+})
+const $secondarySaveButtonTextDestructive: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.tertiary300,
 })

@@ -72,6 +72,62 @@ describe("FireflyApi", () => {
     expect(get).toHaveBeenCalledWith("api/v1/currencies", { page: 1 })
   })
 
+  it("loads budgets and budget limits for a date range", async () => {
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: [{ id: "budget-1", attributes: { name: "Food" } }] },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          data: [
+            {
+              id: "limit-1",
+              attributes: {
+                budget_id: "budget-1",
+                amount: "500.00",
+                start: "2026-07-01",
+                end: "2026-07-31",
+              },
+            },
+          ],
+        },
+      })
+    ;(create as jest.Mock).mockReturnValue({ get, post: jest.fn(), put: jest.fn() })
+    const api = new FireflyApi("https://firefly.example.com", "token")
+
+    await expect(api.getBudgets({ start: "2026-07-01", end: "2026-07-31" })).resolves.toEqual({
+      kind: "ok",
+      data: [{ id: "budget-1", attributes: { name: "Food" } }],
+    })
+    await expect(api.getBudgetLimits({ start: "2026-07-01", end: "2026-07-31" })).resolves.toEqual({
+      kind: "ok",
+      data: [
+        {
+          id: "limit-1",
+          attributes: {
+            budget_id: "budget-1",
+            amount: "500.00",
+            start: "2026-07-01",
+            end: "2026-07-31",
+          },
+        },
+      ],
+    })
+    expect(get).toHaveBeenNthCalledWith(1, "api/v1/budgets", {
+      page: 1,
+      start: "2026-07-01",
+      end: "2026-07-31",
+    })
+    expect(get).toHaveBeenNthCalledWith(2, "api/v1/budget-limits", {
+      page: 1,
+      start: "2026-07-01",
+      end: "2026-07-31",
+    })
+  })
+
   it("creates a transaction through Firefly", async () => {
     const post = jest.fn().mockResolvedValue({
       ok: true,
@@ -252,5 +308,159 @@ describe("FireflyApi", () => {
       interest_period: "monthly",
     })
     expect(put).toHaveBeenNthCalledWith(2, "api/v1/tags/tag-1", { tag: "monthly" })
+  })
+
+  it("creates budgets and budget limits through Firefly", async () => {
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: { id: "budget-1", attributes: { name: "Food" } } },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: { id: "limit-1", attributes: { budget_id: "budget-1" } } },
+      })
+    ;(create as jest.Mock).mockReturnValue({ get: jest.fn(), post, put: jest.fn() })
+    const api = new FireflyApi("https://firefly.example.com", "token")
+
+    await api.createBudget({
+      name: "Food",
+      active: true,
+      notes: null,
+      fire_webhooks: true,
+      auto_budget_type: "reset",
+      auto_budget_currency_code: "USD",
+      auto_budget_amount: "500.00",
+      auto_budget_period: "monthly",
+    })
+    await api.createBudgetLimit("budget-1", {
+      budget_id: "budget-1",
+      currency_code: "USD",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      amount: "500.00",
+      notes: null,
+      fire_webhooks: true,
+    })
+
+    expect(post).toHaveBeenNthCalledWith(1, "api/v1/budgets", {
+      name: "Food",
+      active: true,
+      notes: null,
+      fire_webhooks: true,
+      auto_budget_type: "reset",
+      auto_budget_currency_code: "USD",
+      auto_budget_amount: "500.00",
+      auto_budget_period: "monthly",
+    })
+    expect(post).toHaveBeenNthCalledWith(2, "api/v1/budgets/budget-1/limits", {
+      budget_id: "budget-1",
+      currency_code: "USD",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      amount: "500.00",
+      notes: null,
+      fire_webhooks: true,
+    })
+  })
+
+  it("updates budgets and budget limits through Firefly", async () => {
+    const put = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: { id: "budget-1", attributes: { name: "Groceries" } } },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { data: { id: "limit-1", attributes: { budget_id: "budget-1" } } },
+      })
+    ;(create as jest.Mock).mockReturnValue({ get: jest.fn(), post: jest.fn(), put })
+    const api = new FireflyApi("https://firefly.example.com", "token")
+
+    await api.updateBudget("budget-1", {
+      name: "Groceries",
+      active: true,
+      notes: "Weekly food",
+      fire_webhooks: true,
+      auto_budget_type: "rollover",
+      auto_budget_currency_code: "USD",
+      auto_budget_amount: "650.00",
+      auto_budget_period: "monthly",
+    })
+    await api.updateBudgetLimit("budget-1", "limit-1", {
+      budget_id: "budget-1",
+      currency_code: "USD",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      amount: "650.00",
+      notes: "Weekly food",
+      fire_webhooks: true,
+    })
+
+    expect(put).toHaveBeenNthCalledWith(1, "api/v1/budgets/budget-1", {
+      name: "Groceries",
+      active: true,
+      notes: "Weekly food",
+      fire_webhooks: true,
+      auto_budget_type: "rollover",
+      auto_budget_currency_code: "USD",
+      auto_budget_amount: "650.00",
+      auto_budget_period: "monthly",
+    })
+    expect(put).toHaveBeenNthCalledWith(2, "api/v1/budgets/budget-1/limits/limit-1", {
+      budget_id: "budget-1",
+      currency_code: "USD",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      amount: "650.00",
+      notes: "Weekly food",
+      fire_webhooks: true,
+    })
+  })
+
+  it("deletes budgets through Firefly", async () => {
+    const deleteRequest = jest.fn().mockResolvedValue({ ok: true, status: 204 })
+    ;(create as jest.Mock).mockReturnValue({
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: deleteRequest,
+    })
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").deleteBudget("budget-1"),
+    ).resolves.toEqual({ kind: "ok", data: true })
+    expect(deleteRequest).toHaveBeenCalledWith("api/v1/budgets/budget-1")
+  })
+
+  it("surfaces Firefly validation messages from failed requests", async () => {
+    const post = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      data: {
+        message: "The given data was invalid.",
+        errors: {
+          amount: ["The amount must be greater than zero."],
+        },
+      },
+    })
+    ;(create as jest.Mock).mockReturnValue({ get: jest.fn(), post, put: jest.fn() })
+
+    await expect(
+      new FireflyApi("https://firefly.example.com", "token").createBudgetLimit("budget-1", {
+        budget_id: "budget-1",
+        currency_code: "USD",
+        start: "2026-07-01",
+        end: "2026-07-31",
+        amount: "0.00",
+        notes: null,
+        fire_webhooks: true,
+      }),
+    ).resolves.toEqual({
+      kind: "server",
+      message: "The given data was invalid. The amount must be greater than zero.",
+    })
   })
 })

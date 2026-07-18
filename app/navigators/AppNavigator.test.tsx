@@ -48,6 +48,20 @@ jest.mock("@/screens/AnalyticsScreen", () => ({
   },
 }))
 
+jest.mock("@/screens/BudgetEditorScreen", () => ({
+  BudgetEditorScreen: () => {
+    const { View } = require("react-native")
+    return <View />
+  },
+}))
+
+jest.mock("@/screens/BudgetsScreen", () => ({
+  BudgetsScreen: () => {
+    const { View } = require("react-native")
+    return <View />
+  },
+}))
+
 jest.mock("@/screens/ErrorScreen/ErrorBoundary", () => ({
   ErrorBoundary: ({ children }: { children: ReactNode }) => children,
 }))
@@ -112,8 +126,10 @@ jest.mock("@react-navigation/native-stack", () => ({
       const { View } = require("react-native")
       return <View>{children}</View>
     },
-    Screen: ({ component: Component }: { component: React.ComponentType }) =>
-      Component ? <Component /> : null,
+    Screen: ({ component: Component, name }: { component: React.ComponentType; name: string }) => {
+      const { View } = require("react-native")
+      return <View testID={`stack-screen-${name}`}>{Component ? <Component /> : null}</View>
+    },
   }),
 }))
 
@@ -139,6 +155,15 @@ describe("AppNavigator", () => {
     expect(screen.UNSAFE_getAllByProps({ name: "home-variant" }).length).toBeGreaterThan(0)
     expect(screen.UNSAFE_getAllByProps({ name: "wallet-outline" }).length).toBeGreaterThan(0)
     expect(screen.UNSAFE_getAllByProps({ name: "chart-line-variant" }).length).toBeGreaterThan(0)
+    expect(screen.UNSAFE_getAllByProps({ name: "format-list-bulleted" }).length).toBeGreaterThan(0)
     expect(screen.UNSAFE_getAllByProps({ name: "cog-outline" }).length).toBeGreaterThan(0)
+  })
+
+  it("registers the budget editor route without removing transaction routes", () => {
+    const screen = renderNavigator()
+
+    expect(screen.getByTestId("stack-screen-BudgetEditor")).toBeTruthy()
+    expect(screen.getByTestId("stack-screen-AddTransaction")).toBeTruthy()
+    expect(screen.getByTestId("stack-screen-EditTransaction")).toBeTruthy()
   })
 })

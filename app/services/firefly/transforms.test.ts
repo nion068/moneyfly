@@ -18,6 +18,7 @@ import {
   getAnalyticsBuckets,
   getAnalyticsRange,
   getAnalyticsWindow,
+  getBudgetRange,
   getTransactionIconName,
   getMonthRange,
   groupExpensesByAccount,
@@ -28,7 +29,9 @@ import {
   isVisibleAccount,
   manualTransactionToStoreRequest,
   manualTransactionToUpdateRequest,
+  shiftBudgetPeriod,
   shiftMonth,
+  startOfBudgetPeriod,
 } from "@/services/firefly/transforms"
 
 const groupedTransactions: FireflyTransaction[] = [
@@ -151,6 +154,23 @@ describe("Firefly transforms", () => {
       end: "2024-02-29",
     })
     expect(shiftMonth(new Date(2025, 11, 1), 1)).toEqual(new Date(2026, 0, 1))
+  })
+
+  it("generates budget ranges for month, quarter, and year", () => {
+    expect(getBudgetRange(new Date(2026, 6, 12), "month")).toEqual({
+      start: "2026-07-01",
+      end: "2026-07-31",
+    })
+    expect(getBudgetRange(new Date(2026, 6, 12), "quarter")).toEqual({
+      start: "2026-07-01",
+      end: "2026-09-30",
+    })
+    expect(getBudgetRange(new Date(2026, 6, 12), "year")).toEqual({
+      start: "2026-01-01",
+      end: "2026-12-31",
+    })
+    expect(startOfBudgetPeriod(new Date(2026, 8, 24), "quarter")).toEqual(new Date(2026, 6, 1, 12))
+    expect(shiftBudgetPeriod(new Date(2026, 9, 1), "quarter", -1)).toEqual(new Date(2026, 6, 1))
   })
 
   it("groups transactions by calendar date with each day ordered by time descending", () => {

@@ -141,8 +141,72 @@ export type FireflyBudget = {
   id: string
   attributes: {
     name: string
+    active?: boolean
+    notes?: string | null
+    currency_code?: string
+    currency_symbol?: string
+    currency_decimal_places?: number
+    auto_budget_type?: AutoBudgetType | null
+    auto_budget_period?: AutoBudgetPeriod | null
+    auto_budget_amount?: string | null
+    spent?: FireflyCurrencySum[]
+    pc_spent?: FireflyCurrencySum[]
   }
 }
+
+export type FireflyBudgetLimit = {
+  id: string
+  attributes: {
+    start: string
+    end: string
+    budget_id: string
+    currency_code?: string
+    currency_symbol?: string
+    currency_decimal_places?: number
+    amount: string
+    pc_amount?: string | null
+    period?: AutoBudgetPeriod | null
+    spent?: FireflyCurrencySum[]
+    pc_spent?: FireflyCurrencySum[]
+    notes?: string | null
+  }
+}
+
+export type FireflyCurrencySum = {
+  currency_id?: string
+  currency_code?: string
+  currency_symbol?: string
+  currency_decimal_places?: number
+  sum: string
+}
+
+export type AutoBudgetType = "reset" | "rollover" | "none"
+export type AutoBudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "half-year" | "yearly"
+
+export type StoreBudgetRequest = {
+  name: string
+  active: boolean
+  notes?: string | null
+  fire_webhooks: boolean
+  auto_budget_type?: AutoBudgetType | null
+  auto_budget_currency_code?: string | null
+  auto_budget_amount?: string | null
+  auto_budget_period?: AutoBudgetPeriod | null
+}
+
+export type UpdateBudgetRequest = StoreBudgetRequest
+
+export type StoreBudgetLimitRequest = {
+  budget_id: string
+  currency_code?: string
+  start: string
+  end: string
+  amount: string
+  notes?: string | null
+  fire_webhooks: boolean
+}
+
+export type UpdateBudgetLimitRequest = StoreBudgetLimitRequest
 
 export type FireflyTag = {
   id: string

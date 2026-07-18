@@ -12,6 +12,8 @@ import { AccountsScreen } from "@/screens/AccountsScreen"
 import { AddTransactionScreen } from "@/screens/AddTransactionScreen"
 import { AiAssistantScreen } from "@/screens/AiAssistantScreen"
 import { AnalyticsScreen } from "@/screens/AnalyticsScreen"
+import { BudgetEditorScreen } from "@/screens/BudgetEditorScreen"
+import { BudgetsScreen } from "@/screens/BudgetsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { HomeScreen } from "@/screens/HomeScreen"
 import { TransactionDetailsScreen } from "@/screens/TransactionDetailsScreen"
@@ -114,6 +116,15 @@ function MainTabs() {
         }}
       />
       <Tabs.Screen
+        name="Budgets"
+        component={BudgetsScreen}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} label="Budgets" icon="format-list-bulleted" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="Settings"
         component={SettingsNavigator}
         options={{
@@ -149,6 +160,11 @@ const AppStack = () => {
         options={{ animation: "slide_from_bottom" }}
       />
       <Stack.Screen
+        name="BudgetEditor"
+        component={BudgetEditorScreen}
+        options={{ animation: "slide_from_bottom" }}
+      />
+      <Stack.Screen
         name="TransactionDetails"
         component={TransactionDetailsScreen}
         options={{ animation: "slide_from_right" }}
@@ -179,7 +195,7 @@ export const AppNavigator = (props: NavigationProps) => {
 const $tabIcon: ThemedStyle<ViewStyle> = ({ spacing }) => ({
   alignItems: "center",
   justifyContent: "center",
-  minWidth: 64,
+  minWidth: 54,
   gap: spacing.xxxs,
 })
 
@@ -216,8 +232,8 @@ const $activeTabIcon: ThemedStyle<ViewStyle> = () => ({})
 const $tabLabel: ThemedStyle<TextStyle> = ({ colors, typography }) => ({
   color: colors.textDim,
   fontFamily: typography.primary.medium,
-  fontSize: 12,
-  lineHeight: 16,
+  fontSize: 11,
+  lineHeight: 15,
 })
 
 const $activeTabText: ThemedStyle<TextStyle> = ({ colors }) => ({

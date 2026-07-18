@@ -16,7 +16,7 @@ import { formatDisplayNumber, roundToTwoDecimals } from "@/utils/numbers"
 
 const categoryColors = ["#ff7a1a", "#a548f5", "#86cdea", "#9a958d", "#d87162", "#ded8ce"]
 
-function parseAmount(value?: string | number) {
+export function parseAmount(value?: string | number) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0
   const parsed = Number(value ?? 0)
   return Number.isFinite(parsed) ? parsed : 0
@@ -316,6 +316,7 @@ export function accountToSummary(
 }
 
 export type AnalyticsPeriod = "week" | "month" | "quarter" | "year"
+export type BudgetPeriod = "month" | "quarter" | "year"
 
 export type AnalyticsBucket = {
   key: string
@@ -377,6 +378,51 @@ export function getAnalyticsRange(anchor: Date, period: AnalyticsPeriod) {
     start: formatDateOnly(new Date(year, 0, 1)),
     end: formatDateOnly(new Date(year, 11, 31)),
   }
+}
+
+export function getBudgetRange(anchor: Date, period: BudgetPeriod) {
+  const year = anchor.getFullYear()
+  const monthIndex = anchor.getMonth()
+
+  if (period === "month") return getMonthRange(anchor)
+
+  if (period === "quarter") {
+    const quarterStart = Math.floor(monthIndex / 3) * 3
+    return {
+      start: formatDateOnly(new Date(year, quarterStart, 1)),
+      end: formatDateOnly(new Date(year, quarterStart + 3, 0)),
+    }
+  }
+
+  return {
+    start: formatDateOnly(new Date(year, 0, 1)),
+    end: formatDateOnly(new Date(year, 11, 31)),
+  }
+}
+
+export function shiftBudgetPeriod(anchor: Date, period: BudgetPeriod, offset: number) {
+  if (period === "month") return new Date(anchor.getFullYear(), anchor.getMonth() + offset, 1)
+  if (period === "quarter") {
+    const quarterStart = Math.floor(anchor.getMonth() / 3) * 3
+    return new Date(anchor.getFullYear(), quarterStart + offset * 3, 1)
+  }
+  return new Date(anchor.getFullYear() + offset, 0, 1)
+}
+
+export function startOfBudgetPeriod(anchor: Date, period: BudgetPeriod) {
+  const range = getBudgetRange(anchor, period)
+  return parseDateOnly(range.start)
+}
+
+export function formatBudgetPeriodLabel(anchor: Date, period: BudgetPeriod) {
+  const start = startOfBudgetPeriod(anchor, period)
+  if (period === "month") {
+    return start.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+  }
+  if (period === "quarter") {
+    return `Q${Math.floor(start.getMonth() / 3) + 1} ${start.getFullYear()}`
+  }
+  return String(start.getFullYear())
 }
 
 export function getAnalyticsBuckets(anchor: Date, period: AnalyticsPeriod): AnalyticsBucket[] {

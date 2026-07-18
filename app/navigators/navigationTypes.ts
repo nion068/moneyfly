@@ -14,6 +14,7 @@ export type MainTabParamList = {
   Accounts: undefined
   AiAssistant: undefined
   Analytics: undefined
+  Budgets: undefined
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined
 }
 
@@ -28,6 +29,7 @@ export type SettingsStackParamList = {
 export type AppStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>
   AddTransaction: undefined
+  BudgetEditor: { budgetId?: string; limitId?: string } | undefined
   TransactionDetails: { transaction: FlatTransaction }
   EditTransaction: { groupId: string; journalId?: string }
 }

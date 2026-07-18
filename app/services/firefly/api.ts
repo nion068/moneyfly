@@ -3,6 +3,7 @@ import { ApiResponse, ApisauceInstance, create } from "apisauce"
 import {
   FireflyAccount,
   FireflyBudget,
+  FireflyBudgetLimit,
   FireflyCategory,
   FireflyCurrency,
   FireflyEnvelope,
@@ -11,9 +12,13 @@ import {
   FireflyTransaction,
   FireflyUser,
   StoreAccountRequest,
+  StoreBudgetLimitRequest,
+  StoreBudgetRequest,
   StoreCategoryRequest,
   StoreTagRequest,
   StoreTransactionRequest,
+  UpdateBudgetLimitRequest,
+  UpdateBudgetRequest,
   UpdateTransactionRequest,
 } from "@/models/firefly"
 
@@ -24,24 +29,42 @@ export type FireflyProblem = {
 
 export type FireflyResult<T> = { kind: "ok"; data: T } | FireflyProblem
 
+function fireflyResponseMessage(data: unknown) {
+  if (!data || typeof data !== "object") return undefined
+  const responseData = data as { message?: unknown; errors?: unknown }
+  const message = typeof responseData.message === "string" ? responseData.message : undefined
+  if (!responseData.errors || typeof responseData.errors !== "object") return message
+
+  const errors = Object.values(responseData.errors as Record<string, unknown>)
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter((value): value is string => typeof value === "string")
+
+  return [message, ...errors].filter(Boolean).join(" ") || message
+}
+
 const toProblem = (response: ApiResponse<unknown>): FireflyProblem => {
+  const responseMessage = fireflyResponseMessage(response.data)
+
   if (response.problem === "TIMEOUT_ERROR") {
     return { kind: "timeout", message: "Connection timed out. Check the server URL." }
   }
 
   if (response.status === 401 || response.status === 403) {
-    return { kind: "unauthorized", message: "Firefly rejected the token." }
+    return { kind: "unauthorized", message: responseMessage ?? "Firefly rejected the token." }
   }
 
   if (response.status === 404) {
-    return { kind: "not-found", message: "Firefly endpoint was not found. Check the base URL." }
+    return {
+      kind: "not-found",
+      message: responseMessage ?? "Firefly endpoint was not found. Check the base URL.",
+    }
   }
 
   if (response.problem === "NETWORK_ERROR" || response.problem === "CONNECTION_ERROR") {
     return { kind: "network", message: "Could not reach the Firefly server." }
   }
 
-  return { kind: "server", message: "Firefly returned an unexpected response." }
+  return { kind: "server", message: responseMessage ?? "Firefly returned an unexpected response." }
 }
 
 export class FireflyApi {
@@ -137,8 +160,18 @@ export class FireflyApi {
     return this.getCollection<FireflyCategory>("api/v1/categories")
   }
 
-  async getBudgets(): Promise<FireflyResult<FireflyBudget[]>> {
-    return this.getCollection<FireflyBudget>("api/v1/budgets")
+  async getBudgets(params?: {
+    start?: string
+    end?: string
+  }): Promise<FireflyResult<FireflyBudget[]>> {
+    return this.getCollection<FireflyBudget>("api/v1/budgets", params)
+  }
+
+  async getBudgetLimits(params: {
+    start: string
+    end: string
+  }): Promise<FireflyResult<FireflyBudgetLimit[]>> {
+    return this.getCollection<FireflyBudgetLimit>("api/v1/budget-limits", params)
   }
 
   async getTags(): Promise<FireflyResult<FireflyTag[]>> {
@@ -182,6 +215,39 @@ export class FireflyApi {
 
   async deleteTransaction(id: string): Promise<FireflyResult<true>> {
     return this.deleteSingle(`api/v1/transactions/${id}`)
+  }
+
+  async createBudget(request: StoreBudgetRequest): Promise<FireflyResult<FireflyBudget>> {
+    return this.postSingle<FireflyBudget>("api/v1/budgets", request)
+  }
+
+  async updateBudget(
+    id: string,
+    request: UpdateBudgetRequest,
+  ): Promise<FireflyResult<FireflyBudget>> {
+    return this.putSingle<FireflyBudget>(`api/v1/budgets/${id}`, request)
+  }
+
+  async deleteBudget(id: string): Promise<FireflyResult<true>> {
+    return this.deleteSingle(`api/v1/budgets/${id}`)
+  }
+
+  async createBudgetLimit(
+    budgetId: string,
+    request: StoreBudgetLimitRequest,
+  ): Promise<FireflyResult<FireflyBudgetLimit>> {
+    return this.postSingle<FireflyBudgetLimit>(`api/v1/budgets/${budgetId}/limits`, request)
+  }
+
+  async updateBudgetLimit(
+    budgetId: string,
+    limitId: string,
+    request: UpdateBudgetLimitRequest,
+  ): Promise<FireflyResult<FireflyBudgetLimit>> {
+    return this.putSingle<FireflyBudgetLimit>(
+      `api/v1/budgets/${budgetId}/limits/${limitId}`,
+      request,
+    )
   }
 
   private async deleteSingle(path: string): Promise<FireflyResult<true>> {
