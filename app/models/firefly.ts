@@ -181,7 +181,7 @@ export type FireflyCurrencySum = {
 }
 
 export type AutoBudgetType = "reset" | "rollover" | "adjusted" | "none"
-export type AutoBudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "half-year" | "yearly"
+export type AutoBudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "half_year" | "yearly"
 
 export type StoreBudgetRequest = {
   name: string

@@ -408,6 +408,71 @@ describe("FireflyProvider month loading", () => {
     })
   })
 
+  it("updates Firefly's initial auto-budget limit instead of creating a duplicate", async () => {
+    render(
+      <FireflyProvider>
+        <ContextProbe />
+      </FireflyProvider>,
+    )
+    await waitFor(() => expect(latestContext.budgets.status).toBe("ready"))
+    mockGetBudgetLimits.mockClear()
+    mockCreateBudgetLimit.mockClear()
+    mockUpdateBudgetLimit.mockClear()
+    mockGetBudgetLimits
+      .mockResolvedValueOnce({
+        kind: "ok",
+        data: [
+          {
+            id: "auto-limit-1",
+            attributes: {
+              budget_id: "budget-1",
+              start: "2026-07-01T00:00:00+00:00",
+              end: "2026-07-31T23:59:59+00:00",
+              amount: "500.00",
+              currency_code: "USD",
+            },
+          },
+        ],
+      })
+      .mockResolvedValue({ kind: "ok", data: [] })
+
+    let saved = false
+    await act(async () => {
+      saved = await latestContext.saveBudgetWithLimit(
+        {
+          name: "Food",
+          active: true,
+          notes: null,
+          fire_webhooks: true,
+          auto_budget_type: "adjusted",
+          auto_budget_currency_code: "USD",
+          auto_budget_amount: "500.00",
+          auto_budget_period: "monthly",
+        },
+        {
+          currency_code: "USD",
+          start: "2026-07-01",
+          end: "2026-07-31",
+          amount: "650.00",
+          notes: null,
+          fire_webhooks: true,
+        },
+      )
+    })
+
+    expect(saved).toBe(true)
+    expect(mockCreateBudgetLimit).not.toHaveBeenCalled()
+    expect(mockUpdateBudgetLimit).toHaveBeenCalledWith("budget-1", "auto-limit-1", {
+      budget_id: "budget-1",
+      currency_code: "USD",
+      start: "2026-07-01",
+      end: "2026-07-31",
+      amount: "650.00",
+      notes: null,
+      fire_webhooks: true,
+    })
+  })
+
   it("reports partial failure when the budget saves but the limit fails", async () => {
     mockUpdateBudgetLimit.mockResolvedValueOnce({
       kind: "server",

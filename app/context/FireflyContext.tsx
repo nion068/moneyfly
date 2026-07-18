@@ -120,6 +120,25 @@ type FireflyContextType = {
 
 const emptyState = <T,>(data: T): LoadState<T> => ({ data, status: "idle" })
 const FireflyContext = createContext<FireflyContextType | null>(null)
+const dateKeyFromString = (value: string) => value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? value
+
+function isAutoBudgetEnabled(request: StoreBudgetRequest) {
+  return !!request.auto_budget_type && request.auto_budget_type !== "none"
+}
+
+function findMatchingBudgetLimit(
+  limits: FireflyBudgetLimit[],
+  budgetId: string,
+  request: Omit<StoreBudgetLimitRequest, "budget_id">,
+) {
+  return limits.find(
+    (limit) =>
+      limit.attributes.budget_id === budgetId &&
+      dateKeyFromString(limit.attributes.start) === dateKeyFromString(request.start) &&
+      dateKeyFromString(limit.attributes.end) === dateKeyFromString(request.end) &&
+      (!request.currency_code || limit.attributes.currency_code === request.currency_code),
+  )
+}
 
 export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
   const [storedBaseUrl, setStoredBaseUrl] = useMMKVString("Firefly.baseUrl")
@@ -430,12 +449,47 @@ export const FireflyProvider: FC<PropsWithChildren> = ({ children }) => {
         ...limitRequest,
         budget_id: budgetResult.data.id,
       }
-      const limitResult = existingLimit
-        ? await api.updateBudgetLimit(budgetResult.data.id, existingLimit.id, fullLimitRequest)
+      const fireflyCreatedInitialLimit =
+        !existingBudget && !existingLimit && isAutoBudgetEnabled(budgetRequest)
+          ? await api.getBudgetLimits({
+              start: limitRequest.start,
+              end: limitRequest.end,
+            })
+          : undefined
+      const matchingFireflyLimit =
+        fireflyCreatedInitialLimit?.kind === "ok"
+          ? findMatchingBudgetLimit(
+              fireflyCreatedInitialLimit.data,
+              budgetResult.data.id,
+              limitRequest,
+            )
+          : undefined
+      const limitToUpdate = existingLimit ?? matchingFireflyLimit
+      let limitWasUpdate = !!limitToUpdate
+      let limitResult = limitToUpdate
+        ? await api.updateBudgetLimit(budgetResult.data.id, limitToUpdate.id, fullLimitRequest)
         : await api.createBudgetLimit(budgetResult.data.id, fullLimitRequest)
+      if (limitResult.kind !== "ok" && !limitToUpdate) {
+        const latestLimits = await api.getBudgetLimits({
+          start: limitRequest.start,
+          end: limitRequest.end,
+        })
+        const latestMatchingLimit =
+          latestLimits.kind === "ok"
+            ? findMatchingBudgetLimit(latestLimits.data, budgetResult.data.id, limitRequest)
+            : undefined
+        if (latestMatchingLimit) {
+          limitResult = await api.updateBudgetLimit(
+            budgetResult.data.id,
+            latestMatchingLimit.id,
+            fullLimitRequest,
+          )
+          limitWasUpdate = true
+        }
+      }
       if (limitResult.kind !== "ok") {
         const action = existingBudget ? "updated" : "created"
-        const limitAction = existingLimit ? "update" : "create"
+        const limitAction = limitWasUpdate ? "update" : "create"
         setBudgetMutation({
           data: budgetResult.data,
           status: "error",

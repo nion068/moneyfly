@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native"
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 
 import type { FireflyBudget, FireflyBudgetLimit } from "@/models/firefly"
@@ -162,6 +162,30 @@ describe("BudgetEditorScreen", () => {
       )
     })
     expect(mockGoBack).toHaveBeenCalled()
+  })
+
+  it("disables save immediately while a budget save is in progress", async () => {
+    let resolveSave: (saved: boolean) => void = () => undefined
+    mockSaveBudgetWithLimit.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSave = resolve
+        }),
+    )
+    const { getByLabelText, getByText } = renderEditor()
+
+    fireEvent.changeText(getByLabelText("Budget name"), "Utilities")
+    fireEvent.changeText(getByLabelText("Budget amount"), "250")
+    const saveButton = getByText("Save")
+    fireEvent.press(saveButton)
+    fireEvent.press(saveButton)
+
+    expect(mockSaveBudgetWithLimit).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(getByText("Saving...")).toBeTruthy())
+
+    await act(async () => {
+      resolveSave(false)
+    })
   })
 
   it("requires an auto-budget amount when auto-budget is enabled", () => {

@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react"
+import { FC, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Modal, Pressable, TextStyle, View, ViewStyle } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 
@@ -55,7 +55,7 @@ const autoBudgetPeriodItems: SelectionItem[] = [
   { id: "weekly", title: "Weekly", icon: "calendar-week" },
   { id: "monthly", title: "Monthly", icon: "calendar-month-outline" },
   { id: "quarterly", title: "Quarterly", icon: "calendar-range-outline" },
-  { id: "half-year", title: "Half-yearly", icon: "calendar-blank-multiple" },
+  { id: "half_year", title: "Half-yearly", icon: "calendar-blank-multiple" },
   { id: "yearly", title: "Yearly", icon: "calendar-blank-outline" },
 ]
 
@@ -151,6 +151,8 @@ export const BudgetEditorScreen: FC<BudgetEditorScreenProps> = ({ navigation, ro
   const [endDate, setEndDate] = useState(selectedBudgetAnchor)
   const [active, setActive] = useState(true)
   const [notes, setNotes] = useState("")
+  const [isCompleting, setIsCompleting] = useState(false)
+  const isCompletingRef = useRef(false)
 
   const selectedBudgetAnchorTime = selectedBudgetAnchor.getTime()
   const defaultCurrency =
@@ -175,7 +177,7 @@ export const BudgetEditorScreen: FC<BudgetEditorScreenProps> = ({ navigation, ro
     [currencies.data],
   )
   const autoBudgetEnabled = autoBudgetType !== "none"
-  const isSaving = budgetMutation.status === "loading"
+  const isSaving = isCompleting || budgetMutation.status === "loading"
   const missingBudget = isEditing && budgets.status !== "loading" && !editingBudget
 
   useEffect(() => {
@@ -224,12 +226,15 @@ export const BudgetEditorScreen: FC<BudgetEditorScreenProps> = ({ navigation, ro
     setEndDate(parseDateKey(initialRange.end))
     setActive(editingBudget?.attributes.active !== false)
     setNotes(editingLimit?.attributes.notes ?? editingBudget?.attributes.notes ?? "")
+    isCompletingRef.current = false
+    setIsCompleting(false)
     setValidationError(undefined)
     setSelectorVisible(undefined)
     setDatePickerVisible(undefined)
   }, [defaultCurrency, editingBudget, editingLimit, selectedBudgetAnchorTime, selectedBudgetPeriod])
 
   async function save() {
+    if (isSaving || isCompletingRef.current) return
     resetBudgetMutation()
     setValidationError(undefined)
     if (!name.trim()) {
@@ -264,6 +269,8 @@ export const BudgetEditorScreen: FC<BudgetEditorScreenProps> = ({ navigation, ro
       return
     }
 
+    isCompletingRef.current = true
+    setIsCompleting(true)
     const saved = await saveBudgetWithLimit(
       {
         name: name.trim(),
@@ -287,6 +294,10 @@ export const BudgetEditorScreen: FC<BudgetEditorScreenProps> = ({ navigation, ro
       editingLimit,
     )
     if (saved) navigation.goBack()
+    else {
+      isCompletingRef.current = false
+      setIsCompleting(false)
+    }
   }
 
   async function confirmDeleteBudget() {
